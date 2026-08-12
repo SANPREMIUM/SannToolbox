@@ -240,6 +240,27 @@ input[type=color]{width:100%;height:44px;border-radius:12px;border:1px solid var
 .small-note{font-size:11.5px;color:var(--muted);margin-top:10px;line-height:1.5;}
 .divider{height:1px;background:var(--border);margin:14px 0;}
 .badge-dot{width:8px;height:8px;border-radius:50%;background:var(--good);display:inline-block;}
+
+/* ===== AUTH GATE ===== */
+#gateOverlay{position:fixed;inset:0;z-index:500;background:rgba(6,7,10,.6);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);display:none;align-items:center;justify-content:center;padding:24px;}
+#gateBox{width:100%;max-width:320px;min-height:470px;background:var(--surface);border:1px solid var(--border);border-radius:28px;padding:32px 22px 24px;display:flex;flex-direction:column;box-shadow:0 24px 70px rgba(0,0,0,.45);}
+.gate-title{font-family:var(--font-display);font-weight:800;font-size:21px;text-align:center;line-height:1.4;letter-spacing:.2px;}
+.gate-title.sm{font-size:19px;margin-bottom:16px;}
+.gate-stats{flex:1;display:flex;flex-direction:column;justify-content:center;gap:12px;margin:20px 0;}
+.gs-item{background:var(--surface2);border-radius:16px;padding:16px;text-align:center;}
+.gs-item b{display:block;font-size:24px;font-weight:800;color:var(--accent);}
+.gs-item span{font-size:11px;color:var(--muted);}
+.gate-btn-row{display:flex;gap:10px;}
+.gate-btn{flex:1;border:none;border-radius:30px;padding:15px 0;font-weight:800;font-size:14px;cursor:pointer;}
+.gate-btn:active{transform:scale(.97);}
+.gate-btn.login{background:var(--good);color:#062b12;}
+.gate-btn.daftar{background:#fff;color:#111;}
+.gate-admin-link{text-align:center;font-size:12px;color:var(--muted);margin-top:16px;cursor:pointer;text-decoration:underline;}
+.gate-note{text-align:center;font-size:11px;color:var(--muted);margin-top:12px;line-height:1.5;}
+.gate-back{font-size:12px;color:var(--muted);cursor:pointer;margin-bottom:12px;}
+.gate-error{background:rgba(248,113,113,.12);color:var(--bad);font-size:12px;padding:9px 10px;border-radius:10px;margin-top:10px;text-align:center;}
+.gate-switch{text-align:center;font-size:12.5px;color:var(--muted);margin-top:16px;}
+.gate-switch b{color:var(--accent);cursor:pointer;}
 </style>
 </head>
 <body>
@@ -265,6 +286,10 @@ input[type=color]{width:100%;height:44px;border-radius:12px;border:1px solid var
   <div id="menuOverlay" onclick="closeMenu()"></div>
   <div id="menuDrawer"></div>
   <div id="toast"></div>
+</div>
+
+<div id="gateOverlay">
+  <div id="gateBox"></div>
 </div>
 
 <script>
@@ -345,6 +370,11 @@ function addXP(amount, reason){
     p.lastDay = today;
   }
   saveProfile(p);
+  const _uname = currentUsername();
+  if(_uname){
+    const _users = getUsers();
+    if(_users[_uname]){ _users[_uname].score = (_users[_uname].score||0) + amount; saveUsers(_users); }
+  }
   checkAchievements();
   updateLevelBadge();
   if(reason) toast('+'+amount+' XP · '+reason);
@@ -381,6 +411,187 @@ function toggleFav(id){
   else { f.push(id); toast('Ditambahkan ke favorit ⭐'); }
   DB.set('favs', f);
   render();
+}
+
+/* ============================================================
+   AUTH GATE — login / daftar / admin
+   ============================================================ */
+function getUsers(){ return DB.get('users', {}); }
+function saveUsers(u){ DB.set('users', u); }
+function simpleHash(str){
+  let h = 5381;
+  for(let i=0;i<str.length;i++){ h = ((h<<5)+h) + str.charCodeAt(i); h = h & h; }
+  return 'h'+Math.abs(h).toString(36);
+}
+function currentUsername(){ return sessionStorage.getItem('sann_session_user') || null; }
+function isAdminSession(){ return sessionStorage.getItem('sann_session_admin') === '1'; }
+
+let gateView = 'welcome';
+
+function initAuthGate(){
+  const overlay = document.getElementById('gateOverlay');
+  const savedUser = sessionStorage.getItem('sann_session_user');
+  const savedAdmin = sessionStorage.getItem('sann_session_admin');
+  if(savedAdmin === '1' || (savedUser && getUsers()[savedUser])){
+    overlay.style.display = 'none';
+  } else {
+    sessionStorage.removeItem('sann_session_user');
+    sessionStorage.removeItem('sann_session_admin');
+    gateView = 'welcome';
+    drawGate();
+    overlay.style.display = 'flex';
+  }
+}
+
+function drawGate(msg){
+  const box = document.getElementById('gateBox');
+  const users = getUsers();
+  const totalUsers = Object.keys(users).length;
+  const totalTools = allTools().length;
+
+  if(gateView === 'welcome'){
+    box.innerHTML = `
+      <div class="gate-title">SELAMAT DATANG<br>DI SANN TOOLS</div>
+      <div class="gate-stats">
+        <div class="gs-item"><b>${totalUsers}</b><span>Pengguna Terdaftar</span></div>
+        <div class="gs-item"><b>${totalTools}</b><span>Tools Tersedia</span></div>
+      </div>
+      <div class="gate-btn-row">
+        <button class="gate-btn login" onclick="gateView='login';drawGate();">Login</button>
+        <button class="gate-btn daftar" onclick="gateView='register';drawGate();">Daftar</button>
+      </div>
+      <div class="gate-admin-link" onclick="gateView='admin';drawGate();">Admin Masuk Lewat Sini</div>
+      <div class="gate-note">Jika tidak punya akun, silahkan daftar dulu.</div>
+    `;
+  } else if(gateView === 'login'){
+    box.innerHTML = `
+      <div class="gate-back" onclick="gateView='welcome';drawGate();">← Kembali</div>
+      <div class="gate-title sm">Masuk ke Akun</div>
+      <div class="field"><label>Username</label><input type="text" id="gtLoginUser" placeholder="Masukkan username"></div>
+      <div class="field"><label>Password</label><input type="password" id="gtLoginPass" placeholder="Masukkan password"></div>
+      ${msg?`<div class="gate-error">${msg}</div>`:''}
+      <button class="btn" style="margin-top:10px;" onclick="doLogin()">Login</button>
+      <div class="gate-switch">Belum punya akun? <b onclick="gateView='register';drawGate();">Daftar</b></div>
+    `;
+  } else if(gateView === 'register'){
+    box.innerHTML = `
+      <div class="gate-back" onclick="gateView='welcome';drawGate();">← Kembali</div>
+      <div class="gate-title sm">Buat Akun Baru</div>
+      <div class="field"><label>Username</label><input type="text" id="gtRegUser" placeholder="Pilih username"></div>
+      <div class="field"><label>Password</label><input type="password" id="gtRegPass" placeholder="Buat password"></div>
+      <div class="field"><label>Ulang Password</label><input type="password" id="gtRegPass2" placeholder="Ketik ulang password"></div>
+      ${msg?`<div class="gate-error">${msg}</div>`:''}
+      <button class="btn" style="margin-top:10px;" onclick="doRegister()">Daftar</button>
+      <div class="gate-switch">Sudah punya akun? <b onclick="gateView='login';drawGate();">Login</b></div>
+    `;
+  } else if(gateView === 'admin'){
+    box.innerHTML = `
+      <div class="gate-back" onclick="gateView='welcome';drawGate();">← Kembali</div>
+      <div class="gate-title sm">Login Admin</div>
+      <div class="field"><label>Password Admin</label><input type="password" id="gtAdminPass" placeholder="Masukkan password admin"></div>
+      ${msg?`<div class="gate-error">${msg}</div>`:''}
+      <button class="btn" style="margin-top:10px;background:var(--info);" onclick="doAdminLogin()">Masuk sebagai Admin</button>
+    `;
+  } else if(gateView === 'adminWelcome'){
+    const today = new Date().toDateString();
+    const regToday = Object.values(users).filter(u=>u.createdAt===today).length;
+    box.innerHTML = `
+      <div class="gate-title">Selamat Datang<br>Kembali Sandrian</div>
+      <div class="gate-stats">
+        <div class="gs-item"><b>${regToday}</b><span>User Daftar Hari Ini</span></div>
+        <div class="gs-item"><b>${totalUsers}</b><span>Total User Sekarang</span></div>
+      </div>
+      <button class="btn" onclick="enterApp()">Masuk ke Toolbox</button>
+    `;
+  }
+  const first = box.querySelector('input');
+  if(first) setTimeout(()=>first.focus(), 50);
+}
+
+function doLogin(){
+  const u = document.getElementById('gtLoginUser').value.trim();
+  const pw = document.getElementById('gtLoginPass').value;
+  if(!u || !pw){ drawGate('Username dan password wajib diisi.'); return; }
+  const users = getUsers();
+  const rec = users[u];
+  if(!rec || rec.password !== simpleHash(pw)){ drawGate('Username atau password salah.'); return; }
+  sessionStorage.setItem('sann_session_user', u);
+  toast('Selamat datang kembali, '+u+'! 👋');
+  enterApp();
+}
+
+function doRegister(){
+  const u = document.getElementById('gtRegUser').value.trim();
+  const pw = document.getElementById('gtRegPass').value;
+  const pw2 = document.getElementById('gtRegPass2').value;
+  if(!u || !pw || !pw2){ drawGate('Semua kolom wajib diisi.'); return; }
+  if(u.length < 3){ drawGate('Username minimal 3 karakter.'); return; }
+  if(pw.length < 4){ drawGate('Password minimal 4 karakter.'); return; }
+  if(pw !== pw2){ drawGate('Password dan ulang password tidak sama.'); return; }
+  const users = getUsers();
+  if(users[u]){ drawGate('Username sudah dipakai, pilih yang lain.'); return; }
+  users[u] = { password: simpleHash(pw), createdAt: new Date().toDateString(), score: 0 };
+  saveUsers(users);
+  sessionStorage.setItem('sann_session_user', u);
+  toast('Akun berhasil dibuat! Selamat datang, '+u+' 🎉');
+  enterApp();
+}
+
+function doAdminLogin(){
+  const pw = document.getElementById('gtAdminPass').value;
+  if(pw !== 'elaina'){ drawGate('Password admin salah.'); return; }
+  sessionStorage.setItem('sann_session_admin', '1');
+  gateView = 'adminWelcome';
+  drawGate();
+}
+
+function enterApp(){
+  document.getElementById('gateOverlay').style.display = 'none';
+  render();
+}
+
+function logout(){
+  sessionStorage.removeItem('sann_session_user');
+  sessionStorage.removeItem('sann_session_admin');
+  location.reload();
+}
+
+function renderLeaderboard(){
+  const users = getUsers();
+  const rows = Object.entries(users).map(([u,d])=>({u, score:d.score||0})).sort((a,b)=>b.score-a.score);
+  const top = rows[0];
+  return `
+    <div class="back-link" onclick="nav('home')">← Beranda</div>
+    <h1 class="page-title">🏆 Papan Skor</h1>
+    <p class="page-sub">Skor gabungan semua pengguna yang pernah daftar & login di perangkat ini.</p>
+    ${top && top.score>0 ? `<div class="card" style="text-align:center;"><div style="font-size:12px;color:var(--muted);">👑 High Score Tertinggi</div><div style="font-size:18px;font-weight:800;margin-top:2px;">${top.u}</div><div style="color:var(--accent);font-weight:800;font-size:22px;">${top.score} poin</div></div>` : ''}
+    <div class="section-label">Semua Pengguna</div>
+    <div class="tool-list">
+      ${rows.length? rows.map((r,i)=>`<div class="li-row"><div class="li-tx">${i===0 && r.score>0?'🏆 ':''}${r.u}</div><b style="color:var(--accent)">${r.score}</b></div>`).join('') : `<div class="empty-state"><span class="em">🏆</span>Belum ada user terdaftar.</div>`}
+    </div>
+  `;
+}
+
+function renderAdminPanel(){
+  if(!isAdminSession()) return renderHome();
+  const users = getUsers();
+  const today = new Date().toDateString();
+  const regToday = Object.values(users).filter(u=>u.createdAt===today).length;
+  const rows = Object.entries(users).sort((a,b)=>(b[1].score||0)-(a[1].score||0));
+  return `
+    <div class="back-link" onclick="nav('home')">← Beranda</div>
+    <h1 class="page-title">🛠️ Admin Panel</h1>
+    <p class="page-sub">Selamat Datang Kembali Sandrian.</p>
+    <div class="stat-row">
+      <div class="s"><b>${Object.keys(users).length}</b><span>Total User</span></div>
+      <div class="s"><b>${regToday}</b><span>Daftar Hari Ini</span></div>
+      <div class="s"><b>${allTools().length}</b><span>Total Tools</span></div>
+    </div>
+    <div class="section-label">Semua Pengguna Terdaftar</div>
+    <div class="tool-list">
+      ${rows.length? rows.map(([u,d])=>`<div class="li-row"><div class="li-tx">${u}<br><span style="color:var(--muted);font-size:10.5px;">daftar ${d.createdAt}</span></div><b style="color:var(--accent)">${d.score||0}</b></div>`).join('') : `<div class="empty-state">Belum ada user.</div>`}
+    </div>
+  `;
 }
 
 /* ============================================================
@@ -530,6 +741,8 @@ function render(){
   if(currentPage === 'home') html = renderHome();
   else if(currentPage === 'search') html = renderSearch();
   else if(currentPage === 'profil') html = renderProfil();
+  else if(currentPage === 'leaderboard') html = renderLeaderboard();
+  else if(currentPage === 'admin-panel') html = renderAdminPanel();
   else if(currentPage.startsWith('cat-')) html = renderCategory(currentPage.replace('cat-',''));
   else if(currentPage.startsWith('tool-')) html = renderToolWrap(currentPage.replace('tool-',''));
   else html = renderHome();
@@ -560,6 +773,10 @@ function renderHome(){
         <div style="font-size:22px;">⭐</div>
       </div>
       <div class="xp-bar-bg"><div class="xp-bar-fill" style="width:${Math.min(100,(lv.cur/lv.need)*100)}%"></div></div>
+    </div>
+    <div class="card" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;" onclick="nav('leaderboard')">
+      <div><b>🏆 Papan Skor</b><div style="font-size:11px;color:var(--muted);">Lihat peringkat skor semua pengguna</div></div>
+      <div style="font-size:18px;color:var(--muted);">›</div>
     </div>
     ${favHtml}
     ${recentHtml}
@@ -617,6 +834,11 @@ function renderProfil(){
     <h1 class="page-title">⭐ Profil Kamu</h1>
     <p class="page-sub">Progress, streak, dan pencapaianmu.</p>
     <div class="card" style="text-align:center;">
+      <div style="font-size:12px;color:var(--muted);">Masuk sebagai</div>
+      <div style="font-size:16px;font-weight:800;margin-top:2px;">${isAdminSession()? '🛠️ Admin (Sandrian)' : (currentUsername()||'-')}</div>
+      <button class="btn secondary sm" style="margin-top:10px;" onclick="logout()">Keluar / Logout</button>
+    </div>
+    <div class="card" style="text-align:center;">
       <div style="font-size:40px;">🏆</div>
       <div style="font-size:20px;font-weight:800;margin-top:4px;">Level ${lv.level}</div>
       <div style="font-size:12px;color:var(--muted);">${p.xp} Total XP</div>
@@ -647,6 +869,8 @@ function gameLabel(k){
 function openMenu(){
   const d = document.getElementById('menuDrawer');
   d.innerHTML = `<div style="font-weight:800;font-size:18px;margin-bottom:6px;">🧰 SANN Toolbox</div>` +
+    `<div class="menu-item" onclick="nav('leaderboard')"><span>🏆</span>Papan Skor</div>` +
+    (isAdminSession() ? `<div class="menu-item" onclick="nav('admin-panel')"><span>🛠️</span>Admin Panel</div>` : '') +
     CATS.map(c=>`<div class="menu-cat">${c.em} ${c.nm}</div>` + c.tools.map(t=>`<div class="menu-item" onclick="nav('tool-${t.id}')"><span>${t.em}</span>${t.nm}</div>`).join('')).join('');
   d.classList.add('show');
   document.getElementById('menuOverlay').classList.add('show');
@@ -3045,6 +3269,7 @@ function init(){
   const h = location.hash.replace('#','');
   currentPage = h || 'home';
   render();
+  initAuthGate();
 }
 init();
 </script>
