@@ -530,7 +530,8 @@ function doRegister(){
   if(pw !== pw2){ drawGate('Password dan ulang password tidak sama.'); return; }
   const users = getUsers();
   if(users[u]){ drawGate('Username sudah dipakai, pilih yang lain.'); return; }
-  users[u] = { password: simpleHash(pw), createdAt: new Date().toDateString(), score: 0 };
+  const existingXP = getProfile().xp || 0;
+  users[u] = { password: simpleHash(pw), createdAt: new Date().toDateString(), score: existingXP };
   saveUsers(users);
   sessionStorage.setItem('sann_session_user', u);
   toast('Akun berhasil dibuat! Selamat datang, '+u+' 🎉');
