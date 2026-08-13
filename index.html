@@ -9,6 +9,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <style>
 :root{
   --bg:#0c0e13; --surface:#151824; --surface2:#1d2233; --surface3:#252b40;
@@ -526,7 +527,12 @@ function toggleFav(id){
 }
 
 /* ============================================================
-   FIREBASE INIT + AUTH (Username + Password via Firestore)
+   FIREBASE INIT + AUTH
+   Password TIDAK PERNAH disimpan/dibandingkan sendiri di sini.
+   Semua kredensial ditangani oleh Firebase Authentication
+   (hashing + salting dilakukan di server Google, bukan di JS ini).
+   Username dipetakan ke "email semu" hanya supaya bisa dipakai
+   dengan Firebase Auth berbasis email/password.
    ============================================================ */
 const firebaseConfig = {
   apiKey: "AIzaSyCsXURFRDeEzRXZLe9zYyjh0-1yD6LAlcA",
@@ -537,15 +543,17 @@ const firebaseConfig = {
   appId: "1:435440951581:web:9d774a27fde505dc5941f4",
   measurementId: "G-L11QM1S9LW"
 };
+/* Catatan: apiKey Firebase di atas BUKAN rahasia — Google mendesainnya
+   untuk terlihat publik di kode client. Yang menjaga keamanan datamu
+   adalah Firestore Security Rules (lihat firestore.rules yang dibuatkan
+   terpisah) dan Firebase Authentication, bukan menyembunyikan apiKey ini. */
 
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
+const auth = firebase.auth();
+auth.setPersistence(firebase.auth.Auth.Persistence.SESSION).catch(()=>{});
 
-function simpleHash(str){
-  let h = 5381;
-  for(let i=0;i<str.length;i++){ h = ((h<<5)+h) + str.charCodeAt(i); h = h & h; }
-  return 'h'+Math.abs(h).toString(36);
-}
+function usernameToPseudoEmail(u){ return u.toLowerCase()+'@users.sanntoolbox.app'; }
 function currentUsername(){ return sessionStorage.getItem('sann_session_user') || null; }
 function isAdminSession(){ return sessionStorage.getItem('sann_session_admin') === '1'; }
 function escapeHtml(str){
@@ -559,10 +567,10 @@ async function fsGetUser(username){
     return snap.exists ? { id: snap.id, ...snap.data() } : null;
   }catch(e){ console.error(e); return null; }
 }
-async function fsCreateUser(username, passwordHash, score){
+async function fsCreateUser(username, score){
   await db.collection('users').doc(username).set({
-    password: passwordHash,
     score: score || 0,
+    isAdmin: false,
     createdAt: new Date().toDateString(),
     createdAtTs: firebase.firestore.FieldValue.serverTimestamp()
   });
@@ -625,18 +633,20 @@ let _gateLoading = false;
 
 function initAuthGate(){
   const overlay = document.getElementById('gateOverlay');
-  const savedUser = sessionStorage.getItem('sann_session_user');
-  const savedAdmin = sessionStorage.getItem('sann_session_admin');
-  if(savedAdmin === '1' || savedUser){
-    // Session ada → langsung masuk (validasi ringan, full check saat aksi penting)
-    overlay.style.display = 'none';
-  } else {
-    sessionStorage.removeItem('sann_session_user');
-    sessionStorage.removeItem('sann_session_admin');
-    gateView = 'welcome';
-    drawGate();
-    overlay.style.display = 'flex';
-  }
+  // Sumber kebenaran sesi = Firebase Auth, bukan sekadar sessionStorage.
+  // Ini mencegah UI "terasa login" padahal token Firebase-nya sudah tidak valid.
+  auth.onAuthStateChanged(async (user)=>{
+    const savedUser = sessionStorage.getItem('sann_session_user');
+    if(user && savedUser){
+      overlay.style.display = 'none';
+    } else {
+      sessionStorage.removeItem('sann_session_user');
+      sessionStorage.removeItem('sann_session_admin');
+      gateView = 'welcome';
+      drawGate();
+      overlay.style.display = 'flex';
+    }
+  });
 }
 
 async function drawGate(msg){
@@ -654,7 +664,6 @@ async function drawGate(msg){
         <button class="gate-btn login" onclick="gateView='login';drawGate();">Login</button>
         <button class="gate-btn daftar" onclick="gateView='register';drawGate();">Daftar</button>
       </div>
-      <div class="gate-admin-link" onclick="gateView='admin';drawGate();">Admin Masuk Lewat Sini</div>
       <div class="gate-note">Jika tidak punya akun, silahkan daftar dulu.<br>Akun tersimpan di cloud (multi-perangkat).</div>
     `;
     fsCountUsers().then(n=>{
@@ -682,14 +691,6 @@ async function drawGate(msg){
       <button class="btn" style="margin-top:10px;" id="btnDoRegister" onclick="doRegister()">Daftar</button>
       <div class="gate-switch">Sudah punya akun? <b onclick="gateView='login';drawGate();">Login</b></div>
     `;
-  } else if(gateView === 'admin'){
-    box.innerHTML = `
-      <div class="gate-back" onclick="gateView='welcome';drawGate();">← Kembali</div>
-      <div class="gate-title sm">Login Admin</div>
-      <div class="field"><label>Password Admin</label><input type="password" id="gtAdminPass" placeholder="Masukkan password admin"></div>
-      ${msg?`<div class="gate-error">${msg}</div>`:''}
-      <button class="btn" style="margin-top:10px;background:var(--info);" onclick="doAdminLogin()">Masuk sebagai Admin</button>
-    `;
   } else if(gateView === 'adminWelcome'){
     box.innerHTML = `
       <div class="gate-title">Selamat Datang<br>Kembali Sandrian</div>
@@ -712,6 +713,11 @@ async function drawGate(msg){
   if(first) setTimeout(()=>first.focus(), 50);
 }
 
+/* Login & register memakai Firebase Authentication asli.
+   Password TIDAK PERNAH kita baca/bandingkan sendiri — auth.signInWith...
+   mengirim kredensial langsung ke server Firebase lewat koneksi terenkripsi,
+   dan Firebase yang memverifikasinya. Kode ini tidak pernah melihat/menyimpan
+   hash password siapa pun. */
 async function doLogin(){
   if(_gateLoading) return;
   const u = document.getElementById('gtLoginUser').value.trim();
@@ -723,16 +729,27 @@ async function doLogin(){
   _gateLoading = true;
 
   try{
+    await auth.signInWithEmailAndPassword(usernameToPseudoEmail(u), pw);
     const rec = await fsGetUser(u);
-    if(!rec || rec.password !== simpleHash(pw)){
-      drawGate('Username atau password salah.');
+    sessionStorage.setItem('sann_session_user', u);
+    if(rec && rec.isAdmin === true){
+      sessionStorage.setItem('sann_session_admin', '1');
+      toast('Selamat datang kembali, '+u+'! 👋');
+      gateView = 'adminWelcome';
+      drawGate();
       return;
     }
-    sessionStorage.setItem('sann_session_user', u);
     toast('Selamat datang kembali, '+u+'! 👋');
     enterApp();
   }catch(e){
-    drawGate('Gagal terhubung ke server. Cek internet lalu coba lagi.');
+    console.error(e);
+    if(e.code==='auth/user-not-found' || e.code==='auth/wrong-password' || e.code==='auth/invalid-credential'){
+      drawGate('Username atau password salah.');
+    } else if(e.code==='auth/too-many-requests'){
+      drawGate('Terlalu banyak percobaan gagal. Coba lagi sebentar lagi.');
+    } else {
+      drawGate('Gagal terhubung ke server. Cek internet lalu coba lagi.');
+    }
   }finally{
     _gateLoading = false;
   }
@@ -745,7 +762,7 @@ async function doRegister(){
   const pw2 = document.getElementById('gtRegPass2').value;
   if(!u || !pw || !pw2){ drawGate('Semua kolom wajib diisi.'); return; }
   if(!/^[a-zA-Z0-9_]{3,20}$/.test(u)){ drawGate('Username 3-20 karakter, hanya huruf/angka/underscore.'); return; }
-  if(pw.length < 4){ drawGate('Password minimal 4 karakter.'); return; }
+  if(pw.length < 6){ drawGate('Password minimal 6 karakter.'); return; }
   if(pw !== pw2){ drawGate('Password dan ulang password tidak sama.'); return; }
 
   const btn = document.getElementById('btnDoRegister');
@@ -756,25 +773,24 @@ async function doRegister(){
     const existing = await fsGetUser(u);
     if(existing){ drawGate('Username sudah dipakai, pilih yang lain.'); return; }
 
+    await auth.createUserWithEmailAndPassword(usernameToPseudoEmail(u), pw);
     const existingXP = getProfile().xp || 0;
-    await fsCreateUser(u, simpleHash(pw), existingXP);
+    await fsCreateUser(u, existingXP);
     sessionStorage.setItem('sann_session_user', u);
     toast('Akun berhasil dibuat! Selamat datang, '+u+' 🎉');
     enterApp();
   }catch(e){
     console.error(e);
-    drawGate('Gagal mendaftar. Cek internet / rules Firestore lalu coba lagi.');
+    if(e.code==='auth/email-already-in-use'){
+      drawGate('Username sudah dipakai, pilih yang lain.');
+    } else if(e.code==='auth/weak-password'){
+      drawGate('Password terlalu lemah, minimal 6 karakter.');
+    } else {
+      drawGate('Gagal mendaftar. Cek internet / pengaturan Firebase lalu coba lagi.');
+    }
   }finally{
     _gateLoading = false;
   }
-}
-
-function doAdminLogin(){
-  const pw = document.getElementById('gtAdminPass').value;
-  if(pw !== 'elaina'){ drawGate('Password admin salah.'); return; }
-  sessionStorage.setItem('sann_session_admin', '1');
-  gateView = 'adminWelcome';
-  drawGate();
 }
 
 function enterApp(){
@@ -785,7 +801,7 @@ function enterApp(){
 function logout(){
   sessionStorage.removeItem('sann_session_user');
   sessionStorage.removeItem('sann_session_admin');
-  location.reload();
+  auth.signOut().finally(()=>location.reload());
 }
 
 function renderLeaderboard(){
