@@ -233,22 +233,6 @@ input[type=color]{width:100%;height:44px;border-radius:12px;border:1px solid var
     opacity:1 !important;
 }
 #snakeCanvas,#drawCanvas{width:100%;background:var(--surface2);border-radius:14px;touch-action:none;}
-.tsb-wrap{position:relative;width:100%;aspect-ratio:5/7;max-height:70vh;border-radius:16px;overflow:hidden;background:#000;margin:8px 0;}
-.tsb-wrap canvas{display:block;width:100%;height:100%;touch-action:none;}
-.tsb-hud{position:absolute;top:10px;left:0;right:0;display:flex;justify-content:space-between;align-items:flex-start;padding:0 14px;pointer-events:none;z-index:3;}
-.tsb-score{font-size:30px;font-weight:800;color:#fff;text-shadow:0 2px 6px rgba(0,0,0,.5);}
-.tsb-best{font-size:11px;font-weight:700;color:var(--accent);background:rgba(0,0,0,.35);padding:4px 9px;border-radius:20px;}
-.tsb-overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;z-index:5;padding:16px;background:rgba(10,14,26,.72);}
-.tsb-overlay.hide{display:none;}
-.tsb-overlay .em{font-size:44px;margin-bottom:4px;}
-.tsb-overlay h3{font-size:20px;margin:0 0 4px;color:#fff;}
-.tsb-overlay p{color:#c7cbdb;font-size:12.5px;margin:0 0 14px;max-width:240px;line-height:1.5;}
-.tsb-overlay .stat-row{background:rgba(255,255,255,.08);margin-bottom:14px;}
-.tsb-overlay .stat-row .s b{color:var(--accent);}
-.tsb-overlay .stat-row .s span{color:#c7cbdb;}
-.tsb-play{background:linear-gradient(180deg,var(--accent),#f0a93a);color:#2a1b02;border:none;padding:13px 32px;border-radius:30px;font-weight:800;font-size:14.5px;cursor:pointer;}
-.tsb-play:active{transform:scale(.96);}
-.tsb-hint{position:absolute;bottom:14px;left:0;right:0;text-align:center;color:rgba(255,255,255,.6);font-size:11px;font-weight:600;z-index:2;pointer-events:none;}
 
 /* stat row */
 .stat-row{display:flex;justify-content:space-between;text-align:center;background:var(--surface2);border-radius:14px;padding:14px 8px;margin-bottom:14px;}
@@ -876,7 +860,6 @@ const CATS = [
    {id:'g-stroop', em:'🎨', nm:'Stroop Color', desc:'Sebutkan warna teks, bukan tulisannya — uji fokus!'},
    {id:'g-catch', em:'🍎', nm:'Catch Fruits', desc:'Tangkap buah yang jatuh, hindari bom'},
    {id:'g-breakout', em:'🧱', nm:'Breakout', desc:'Hancurkan bata dengan bola & paddle'},
-   {id:'g-terbang', em:'🐤', nm:'Terbang Seru', desc:'Ketuk untuk terbang melewati celah pipa, jangan sampai nabrak'},
  ]},
 
  {id:'harian', em:'🌦️', nm:'Daily Tools', desc:'Cuaca, sholat, kiblat, catatan', tools:[
@@ -1092,8 +1075,7 @@ function gameLabel(k){
     'g-tebakangka':'Tebak Angka (percobaan tersedikit)',
     'g-stroop':'Stroop Color (skor tertinggi)',
     'g-catch':'Catch Fruits (skor tertinggi)',
-    'g-breakout':'Breakout (skor tertinggi)',
-    'g-terbang':'Terbang Seru (skor tertinggi)'
+    'g-breakout':'Breakout (skor tertinggi)'
   };
   return m[k] || k;
 }
@@ -4048,159 +4030,6 @@ TOOL_RENDERERS['g-breakout'] = (el)=>{
     cancelAnimationFrame(raf);
     raf = requestAnimationFrame(loop);
   };
-};
-
-/* -- Terbang Seru (flappy-style) -- */
-TOOL_RENDERERS['g-terbang'] = (el)=>{
-  const best0 = DB.get('gameScores',{})['g-terbang']||0;
-  el.innerHTML = `
-    <div class="tsb-wrap" id="tsbWrap">
-      <canvas id="tsbCanvas"></canvas>
-      <div class="tsb-hud"><div class="tsb-score" id="tsbScore">0</div><div class="tsb-best" id="tsbBest">🏆 ${best0}</div></div>
-      <div class="tsb-hint" id="tsbHint">Ketuk untuk terbang</div>
-      <div class="tsb-overlay" id="tsbOverlay">
-        <div class="em">🐤</div>
-        <h3 id="tsbTitle">Terbang Seru</h3>
-        <p>Ketuk untuk terbang melewati celah pipa sebanyak mungkin. Jangan sampai menabrak!</p>
-        <div class="stat-row"><div class="s"><b id="tsbLast">0</b><span>Terakhir</span></div><div class="s"><b id="tsbBestStat">${best0}</b><span>Rekor</span></div></div>
-        <button class="tsb-play" id="tsbPlay">▶ Main</button>
-      </div>
-    </div>
-  `;
-  const wrapEl = document.getElementById('tsbWrap');
-  const canvas = document.getElementById('tsbCanvas');
-  const ctx = canvas.getContext('2d');
-  const overlay = document.getElementById('tsbOverlay');
-  const scoreEl = document.getElementById('tsbScore');
-  const bestEl = document.getElementById('tsbBest');
-  const lastEl = document.getElementById('tsbLast');
-  const bestStatEl = document.getElementById('tsbBestStat');
-  const hintEl = document.getElementById('tsbHint');
-  const playBtn = document.getElementById('tsbPlay');
-
-  let W, H, DPR;
-  function resize(){
-    const rect = wrapEl.getBoundingClientRect();
-    DPR = Math.min(window.devicePixelRatio||1, 2);
-    W = rect.width || 300; H = rect.height || 420;
-    canvas.width = W*DPR; canvas.height = H*DPR;
-    ctx.setTransform(DPR,0,0,DPR,0,0);
-  }
-  resize();
-  const onResize = ()=>resize();
-  window.addEventListener('resize', onResize);
-
-  const GRAV=1500, FLAP_V=-420, PIPE_GAP_BASE=190, PIPE_W=60, BIRD_R=14;
-  let bird, pipes, score, speed, playing, over, spawnTimer, clouds, groundOffset, animT, raf, last;
-
-  function reset(){
-    bird = {x:W*0.3, y:H*0.4, vy:0, rot:0};
-    pipes = []; score=0; speed=165; playing=false; over=false; spawnTimer=0; animT=0;
-    scoreEl.textContent='0';
-    clouds = Array.from({length:5},()=>({x:Math.random()*W, y:20+Math.random()*H*0.4, s:.5+Math.random()*.8}));
-    groundOffset=0;
-  }
-  function flap(){
-    if(over) return;
-    if(!playing){ playing=true; overlay.classList.add('hide'); hintEl.style.opacity='1'; }
-    bird.vy = FLAP_V;
-  }
-  function spawnPipe(){
-    const gap = Math.max(125, PIPE_GAP_BASE - Math.min(50, score*1.5));
-    const margin = 55;
-    const top = margin + Math.random()*(H - margin*2 - gap - 80);
-    pipes.push({x:W+PIPE_W, top, gap, passed:false});
-  }
-  function endGame(){
-    over=true; playing=false;
-    lastEl.textContent = score;
-    const isBest = saveHighscore('g-terbang', score, true);
-    if(score>0) recordGameWin();
-    addXP(Math.min(20,score*2),'Terbang Seru selesai');
-    const best = DB.get('gameScores',{})['g-terbang']||0;
-    bestEl.textContent = '🏆 '+best; bestStatEl.textContent = best;
-    document.getElementById('tsbTitle').textContent = isBest && score>0 ? 'Rekor Baru!' : 'Coba Lagi!';
-    overlay.querySelector('.em').textContent = isBest && score>0 ? '🏆' : '💥';
-    playBtn.textContent = '🔄 Main Lagi';
-    overlay.classList.remove('hide');
-    if(isBest && score>0) toast('🏆 Rekor baru: '+score);
-  }
-  function update(dt){
-    animT += dt;
-    clouds.forEach(cl=>{ cl.x -= dt*10*cl.s; if(cl.x<-40) cl.x = W+40; });
-    if(!playing) return;
-    bird.vy += GRAV*dt; bird.y += bird.vy*dt;
-    bird.rot = Math.max(-0.5, Math.min(1.2, bird.vy/500));
-    groundOffset -= speed*dt;
-    speed = Math.min(320, 165+score*4);
-    spawnTimer -= dt;
-    if(spawnTimer<=0){ spawnPipe(); spawnTimer = Math.max(1.15, 1.7-score*0.02); }
-    pipes.forEach(p=> p.x -= speed*dt);
-    pipes = pipes.filter(p=> p.x > -PIPE_W-10);
-    pipes.forEach(p=>{
-      if(!p.passed && p.x+PIPE_W < bird.x-BIRD_R){ p.passed=true; score++; scoreEl.textContent=score; }
-      const withinX = bird.x+BIRD_R > p.x && bird.x-BIRD_R < p.x+PIPE_W;
-      if(withinX && (bird.y-BIRD_R < p.top || bird.y+BIRD_R > p.top+p.gap)) endGame();
-    });
-    const groundY = H-40;
-    if(bird.y+BIRD_R > groundY || bird.y-BIRD_R < 0) endGame();
-  }
-  function drawBg(){
-    const g = ctx.createLinearGradient(0,0,0,H);
-    g.addColorStop(0,'#6ec6ff'); g.addColorStop(.65,'#bfe8ff'); g.addColorStop(1,'#e9fbe5');
-    ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
-    ctx.fillStyle='rgba(255,255,255,.85)';
-    clouds.forEach(cl=>{
-      ctx.beginPath();
-      ctx.ellipse(cl.x,cl.y,26*cl.s,14*cl.s,0,0,Math.PI*2);
-      ctx.ellipse(cl.x+18*cl.s,cl.y+4*cl.s,18*cl.s,11*cl.s,0,0,Math.PI*2);
-      ctx.ellipse(cl.x-16*cl.s,cl.y+5*cl.s,16*cl.s,10*cl.s,0,0,Math.PI*2);
-      ctx.fill();
-    });
-  }
-  function drawPipe(p){
-    const bg = ctx.createLinearGradient(p.x,0,p.x+PIPE_W,0);
-    bg.addColorStop(0,'#3fae4a'); bg.addColorStop(.5,'#5fd66c'); bg.addColorStop(1,'#3fae4a');
-    ctx.fillStyle=bg;
-    ctx.fillRect(p.x,0,PIPE_W,p.top);
-    ctx.fillRect(p.x,p.top+p.gap,PIPE_W,H-(p.top+p.gap));
-    ctx.fillStyle='#2f8f3a';
-    ctx.fillRect(p.x-4,p.top-20,PIPE_W+8,20);
-    ctx.fillRect(p.x-4,p.top+p.gap,PIPE_W+8,20);
-  }
-  function drawGround(){
-    const groundY = H-40;
-    ctx.fillStyle='#deb887'; ctx.fillRect(0,groundY,W,H-groundY);
-    ctx.fillStyle='#8bc24a'; ctx.fillRect(0,groundY,W,7);
-    ctx.fillStyle='rgba(0,0,0,.08)';
-    const tile=28; let off=((groundOffset%tile)+tile)%tile;
-    for(let x=-off;x<W;x+=tile) ctx.fillRect(x,groundY+7,tile*0.5,H-groundY-7);
-  }
-  function drawBird(){
-    ctx.save(); ctx.translate(bird.x,bird.y); ctx.rotate(bird.rot);
-    const wingY = Math.sin(animT*16)*4;
-    ctx.fillStyle='#ffd166'; ctx.beginPath(); ctx.ellipse(0,0,BIRD_R,BIRD_R*0.86,0,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle='#f4a53c'; ctx.beginPath(); ctx.ellipse(-2,4+wingY,8,5.5,-0.3,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(6,-4,4,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle='#1c1d22'; ctx.beginPath(); ctx.arc(7.5,-4,1.9,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle='#ff8c42'; ctx.beginPath(); ctx.moveTo(11,-1); ctx.lineTo(19,2); ctx.lineTo(11,5); ctx.closePath(); ctx.fill();
-    ctx.restore();
-  }
-  function loop(now){
-    if(!currentPage.includes('g-terbang')){ cancelAnimationFrame(raf); window.removeEventListener('resize', onResize); return; }
-    const dt = Math.min(0.033,(now-last)/1000); last=now;
-    update(dt); drawBg(); pipes.forEach(drawPipe); drawGround(); drawBird();
-    raf = requestAnimationFrame(loop);
-  }
-  canvas.addEventListener('pointerdown', e=>{ e.preventDefault(); flap(); });
-  if(window._tsbKeyBound) document.removeEventListener('keydown', window._tsbKeyBound);
-  window._tsbKeyBound = (e)=>{ if(!currentPage.includes('g-terbang')) return; if(e.code==='Space'){ e.preventDefault(); flap(); } };
-  document.addEventListener('keydown', window._tsbKeyBound);
-  playBtn.addEventListener('click', e=>{ e.stopPropagation(); reset(); overlay.classList.add('hide'); hintEl.style.opacity='1'; });
-
-  reset();
-  last = performance.now();
-  raf = requestAnimationFrame(loop);
 };
 
 /* ============================================================
