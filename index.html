@@ -7,6 +7,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <style>
 :root{
   --bg:#0c0e13; --surface:#151824; --surface2:#1d2233; --surface3:#252b40;
@@ -169,9 +171,84 @@ input[type=color]{width:100%;height:44px;border-radius:12px;border:1px solid var
 .puzzle-board{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;max-width:300px;margin:10px auto;}
 .puzzle-cell{aspect-ratio:1;background:var(--accent);color:#1a1206;border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;cursor:pointer;}
 .puzzle-cell.empty{background:var(--surface2);}
-.sudoku-board{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;max-width:260px;margin:10px auto;}
-.sudoku-cell input{text-align:center;padding:10px 0;font-weight:700;font-size:16px;}
+.sudoku-board{
+    display:grid;
+    grid-template-columns:repeat(9,1fr);
+    width:100%;
+    max-width:360px;
+    margin:10px auto;
+    background:#9A7B00;
+    border:3px solid #facc15;
+    gap:0;
+    overflow:hidden;
+    border-radius:8px;
+}
+
+.sudoku-cell{
+    aspect-ratio:1;
+    background:#000;
+    border-right:2px solid #9A7B00;
+    border-bottom:2px solid #9A7B00;
+    box-sizing:border-box;
+}
+
+/* Garis pemisah blok 3×3 - KUNING */
+.sudoku-cell:nth-child(3n){
+    border-right:4px solid #facc15
+}
+
+.sudoku-cell:nth-child(n+19):nth-child(-n+27),
+.sudoku-cell:nth-child(n+46):nth-child(-n+54){
+    border-bottom:4px solid #facc15;
+}
+
+/* Sisi kanan */
+.sudoku-cell:nth-child(9n){
+    border-right:none;
+}
+
+/* Sisi bawah */
+.sudoku-cell:nth-child(n+73){
+    border-bottom:none;
+}
+
+.sudoku-cell input{
+    width:100%;
+    height:100%;
+    box-sizing:border-box;
+    padding:0;
+    margin:0;
+    border:none;
+    outline:none;
+    text-align:center;
+    font-weight:800;
+    font-size:17px;
+    background:#000;
+    color:#fff;
+}
+
+.sudoku-cell input[readonly]{
+    background:#000 !important;
+    color:#fff !important;
+    opacity:1 !important;
+}
 #snakeCanvas,#drawCanvas{width:100%;background:var(--surface2);border-radius:14px;touch-action:none;}
+.tsb-wrap{position:relative;width:100%;aspect-ratio:5/7;max-height:70vh;border-radius:16px;overflow:hidden;background:#000;margin:8px 0;}
+.tsb-wrap canvas{display:block;width:100%;height:100%;touch-action:none;}
+.tsb-hud{position:absolute;top:10px;left:0;right:0;display:flex;justify-content:space-between;align-items:flex-start;padding:0 14px;pointer-events:none;z-index:3;}
+.tsb-score{font-size:30px;font-weight:800;color:#fff;text-shadow:0 2px 6px rgba(0,0,0,.5);}
+.tsb-best{font-size:11px;font-weight:700;color:var(--accent);background:rgba(0,0,0,.35);padding:4px 9px;border-radius:20px;}
+.tsb-overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;z-index:5;padding:16px;background:rgba(10,14,26,.72);}
+.tsb-overlay.hide{display:none;}
+.tsb-overlay .em{font-size:44px;margin-bottom:4px;}
+.tsb-overlay h3{font-size:20px;margin:0 0 4px;color:#fff;}
+.tsb-overlay p{color:#c7cbdb;font-size:12.5px;margin:0 0 14px;max-width:240px;line-height:1.5;}
+.tsb-overlay .stat-row{background:rgba(255,255,255,.08);margin-bottom:14px;}
+.tsb-overlay .stat-row .s b{color:var(--accent);}
+.tsb-overlay .stat-row .s span{color:#c7cbdb;}
+.tsb-play{background:linear-gradient(180deg,var(--accent),#f0a93a);color:#2a1b02;border:none;padding:13px 32px;border-radius:30px;font-weight:800;font-size:14.5px;cursor:pointer;}
+.tsb-play:active{transform:scale(.96);}
+.tsb-hint{position:absolute;bottom:14px;left:0;right:0;text-align:center;color:rgba(255,255,255,.6);font-size:11px;font-weight:600;z-index:2;pointer-events:none;}
 
 /* stat row */
 .stat-row{display:flex;justify-content:space-between;text-align:center;background:var(--surface2);border-radius:14px;padding:14px 8px;margin-bottom:14px;}
@@ -324,7 +401,14 @@ function initTheme(){
   document.getElementById('themeBtn').textContent = t==='light' ? '☀️' : '🌙';
   const accent = DB.get('accent', '#f2a541');
   document.documentElement.style.setProperty('--accent', accent);
-  document.documentElement.style.setProperty('--accent2', accent);
+  try {
+    const r = parseInt(accent.slice(1,3),16), g = parseInt(accent.slice(3,5),16), b = parseInt(accent.slice(5,7),16);
+    const lighten = (c) => Math.min(255, Math.round(c + (255-c)*0.25));
+    const a2 = '#' + [lighten(r),lighten(g),lighten(b)].map(x=>x.toString(16).padStart(2,'0')).join('');
+    document.documentElement.style.setProperty('--accent2', a2);
+  } catch(e) {
+    document.documentElement.style.setProperty('--accent2', accent);
+  }
 }
 function toggleTheme(){
   const cur = DB.get('theme','dark');
@@ -332,10 +416,18 @@ function toggleTheme(){
   DB.set('theme', nw); initTheme();
 }
 function setAccent(hex){
+  if(!hex || !/^#[0-9a-fA-F]{6}$/.test(hex)) return;
   DB.set('accent', hex);
   document.documentElement.style.setProperty('--accent', hex);
-  document.documentElement.style.setProperty('--accent2', hex);
-  toast('Warna aksen diperbarui');
+  try {
+    const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+    const lighten = (c) => Math.min(255, Math.round(c + (255-c)*0.25));
+    const a2 = '#' + [lighten(r),lighten(g),lighten(b)].map(x=>x.toString(16).padStart(2,'0')).join('');
+    document.documentElement.style.setProperty('--accent2', a2);
+  } catch(e) {
+    document.documentElement.style.setProperty('--accent2', hex);
+  }
+  toast('Warna aksen diperbarui ✅');
 }
 
 /* ---------- XP / streak / achievements ---------- */
@@ -372,8 +464,7 @@ function addXP(amount, reason){
   saveProfile(p);
   const _uname = currentUsername();
   if(_uname){
-    const _users = getUsers();
-    if(_users[_uname]){ _users[_uname].score = (_users[_uname].score||0) + amount; saveUsers(_users); }
+    fsUpdateScore(_uname, amount); // update skor global di Firestore
   }
   checkAchievements();
   updateLevelBadge();
@@ -414,10 +505,21 @@ function toggleFav(id){
 }
 
 /* ============================================================
-   AUTH GATE — login / daftar / admin
+   FIREBASE INIT + AUTH (Username + Password via Firestore)
    ============================================================ */
-function getUsers(){ return DB.get('users', {}); }
-function saveUsers(u){ DB.set('users', u); }
+const firebaseConfig = {
+  apiKey: "AIzaSyCsXURFRDeEzRXZLe9zYyjh0-1yD6LAlcA",
+  authDomain: "sann-tools-2c22e.firebaseapp.com",
+  projectId: "sann-tools-2c22e",
+  storageBucket: "sann-tools-2c22e.firebasestorage.app",
+  messagingSenderId: "435440951581",
+  appId: "1:435440951581:web:9d774a27fde505dc5941f4",
+  measurementId: "G-L11QM1S9LW"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
 function simpleHash(str){
   let h = 5381;
   for(let i=0;i<str.length;i++){ h = ((h<<5)+h) + str.charCodeAt(i); h = h & h; }
@@ -426,13 +528,58 @@ function simpleHash(str){
 function currentUsername(){ return sessionStorage.getItem('sann_session_user') || null; }
 function isAdminSession(){ return sessionStorage.getItem('sann_session_admin') === '1'; }
 
+/* Firestore helpers */
+async function fsGetUser(username){
+  try{
+    const snap = await db.collection('users').doc(username).get();
+    return snap.exists ? { id: snap.id, ...snap.data() } : null;
+  }catch(e){ console.error(e); return null; }
+}
+async function fsCreateUser(username, passwordHash, score){
+  await db.collection('users').doc(username).set({
+    password: passwordHash,
+    score: score || 0,
+    createdAt: new Date().toDateString(),
+    createdAtTs: firebase.firestore.FieldValue.serverTimestamp()
+  });
+}
+async function fsUpdateScore(username, amount){
+  if(!username) return;
+  try{
+    await db.collection('users').doc(username).update({
+      score: firebase.firestore.FieldValue.increment(amount)
+    });
+  }catch(e){ console.error('Gagal update skor:', e); }
+}
+async function fsGetAllUsers(){
+  try{
+    const snap = await db.collection('users').orderBy('score','desc').get();
+    return snap.docs.map(d => ({ u: d.id, ...d.data() }));
+  }catch(e){
+    console.error(e);
+    // fallback tanpa orderBy (kalau index belum ada)
+    try{
+      const snap2 = await db.collection('users').get();
+      return snap2.docs.map(d => ({ u: d.id, ...d.data() })).sort((a,b)=>(b.score||0)-(a.score||0));
+    }catch(e2){ return []; }
+  }
+}
+async function fsCountUsers(){
+  try{
+    const snap = await db.collection('users').get();
+    return snap.size;
+  }catch(e){ return 0; }
+}
+
 let gateView = 'welcome';
+let _gateLoading = false;
 
 function initAuthGate(){
   const overlay = document.getElementById('gateOverlay');
   const savedUser = sessionStorage.getItem('sann_session_user');
   const savedAdmin = sessionStorage.getItem('sann_session_admin');
-  if(savedAdmin === '1' || (savedUser && getUsers()[savedUser])){
+  if(savedAdmin === '1' || savedUser){
+    // Session ada → langsung masuk (validasi ringan, full check saat aksi penting)
     overlay.style.display = 'none';
   } else {
     sessionStorage.removeItem('sann_session_user');
@@ -443,17 +590,15 @@ function initAuthGate(){
   }
 }
 
-function drawGate(msg){
+async function drawGate(msg){
   const box = document.getElementById('gateBox');
-  const users = getUsers();
-  const totalUsers = Object.keys(users).length;
   const totalTools = allTools().length;
 
   if(gateView === 'welcome'){
     box.innerHTML = `
       <div class="gate-title">SELAMAT DATANG<br>DI SANN TOOLS</div>
       <div class="gate-stats">
-        <div class="gs-item"><b>${totalUsers}</b><span>Pengguna Terdaftar</span></div>
+        <div class="gs-item"><b id="gateUserCount">...</b><span>Pengguna Terdaftar</span></div>
         <div class="gs-item"><b>${totalTools}</b><span>Tools Tersedia</span></div>
       </div>
       <div class="gate-btn-row">
@@ -461,27 +606,31 @@ function drawGate(msg){
         <button class="gate-btn daftar" onclick="gateView='register';drawGate();">Daftar</button>
       </div>
       <div class="gate-admin-link" onclick="gateView='admin';drawGate();">Admin Masuk Lewat Sini</div>
-      <div class="gate-note">Jika tidak punya akun, silahkan daftar dulu.</div>
+      <div class="gate-note">Jika tidak punya akun, silahkan daftar dulu.<br>Akun tersimpan di cloud (multi-perangkat).</div>
     `;
+    fsCountUsers().then(n=>{
+      const el = document.getElementById('gateUserCount');
+      if(el) el.textContent = n;
+    });
   } else if(gateView === 'login'){
     box.innerHTML = `
       <div class="gate-back" onclick="gateView='welcome';drawGate();">← Kembali</div>
       <div class="gate-title sm">Masuk ke Akun</div>
-      <div class="field"><label>Username</label><input type="text" id="gtLoginUser" placeholder="Masukkan username"></div>
-      <div class="field"><label>Password</label><input type="password" id="gtLoginPass" placeholder="Masukkan password"></div>
+      <div class="field"><label>Username</label><input type="text" id="gtLoginUser" placeholder="Masukkan username" autocomplete="username"></div>
+      <div class="field"><label>Password</label><input type="password" id="gtLoginPass" placeholder="Masukkan password" autocomplete="current-password"></div>
       ${msg?`<div class="gate-error">${msg}</div>`:''}
-      <button class="btn" style="margin-top:10px;" onclick="doLogin()">Login</button>
+      <button class="btn" style="margin-top:10px;" id="btnDoLogin" onclick="doLogin()">Login</button>
       <div class="gate-switch">Belum punya akun? <b onclick="gateView='register';drawGate();">Daftar</b></div>
     `;
   } else if(gateView === 'register'){
     box.innerHTML = `
       <div class="gate-back" onclick="gateView='welcome';drawGate();">← Kembali</div>
       <div class="gate-title sm">Buat Akun Baru</div>
-      <div class="field"><label>Username</label><input type="text" id="gtRegUser" placeholder="Pilih username"></div>
-      <div class="field"><label>Password</label><input type="password" id="gtRegPass" placeholder="Buat password"></div>
-      <div class="field"><label>Ulang Password</label><input type="password" id="gtRegPass2" placeholder="Ketik ulang password"></div>
+      <div class="field"><label>Username</label><input type="text" id="gtRegUser" placeholder="Pilih username" autocomplete="username"></div>
+      <div class="field"><label>Password</label><input type="password" id="gtRegPass" placeholder="Buat password" autocomplete="new-password"></div>
+      <div class="field"><label>Ulang Password</label><input type="password" id="gtRegPass2" placeholder="Ketik ulang password" autocomplete="new-password"></div>
       ${msg?`<div class="gate-error">${msg}</div>`:''}
-      <button class="btn" style="margin-top:10px;" onclick="doRegister()">Daftar</button>
+      <button class="btn" style="margin-top:10px;" id="btnDoRegister" onclick="doRegister()">Daftar</button>
       <div class="gate-switch">Sudah punya akun? <b onclick="gateView='login';drawGate();">Login</b></div>
     `;
   } else if(gateView === 'admin'){
@@ -493,49 +642,82 @@ function drawGate(msg){
       <button class="btn" style="margin-top:10px;background:var(--info);" onclick="doAdminLogin()">Masuk sebagai Admin</button>
     `;
   } else if(gateView === 'adminWelcome'){
-    const today = new Date().toDateString();
-    const regToday = Object.values(users).filter(u=>u.createdAt===today).length;
     box.innerHTML = `
       <div class="gate-title">Selamat Datang<br>Kembali Sandrian</div>
       <div class="gate-stats">
-        <div class="gs-item"><b>${regToday}</b><span>User Daftar Hari Ini</span></div>
-        <div class="gs-item"><b>${totalUsers}</b><span>Total User Sekarang</span></div>
+        <div class="gs-item"><b id="adminRegToday">...</b><span>User Daftar Hari Ini</span></div>
+        <div class="gs-item"><b id="adminTotalUsers">...</b><span>Total User Sekarang</span></div>
       </div>
       <button class="btn" onclick="enterApp()">Masuk ke Toolbox</button>
     `;
+    fsGetAllUsers().then(list=>{
+      const today = new Date().toDateString();
+      const regToday = list.filter(u=>u.createdAt===today).length;
+      const el1 = document.getElementById('adminRegToday');
+      const el2 = document.getElementById('adminTotalUsers');
+      if(el1) el1.textContent = regToday;
+      if(el2) el2.textContent = list.length;
+    });
   }
   const first = box.querySelector('input');
   if(first) setTimeout(()=>first.focus(), 50);
 }
 
-function doLogin(){
+async function doLogin(){
+  if(_gateLoading) return;
   const u = document.getElementById('gtLoginUser').value.trim();
   const pw = document.getElementById('gtLoginPass').value;
   if(!u || !pw){ drawGate('Username dan password wajib diisi.'); return; }
-  const users = getUsers();
-  const rec = users[u];
-  if(!rec || rec.password !== simpleHash(pw)){ drawGate('Username atau password salah.'); return; }
-  sessionStorage.setItem('sann_session_user', u);
-  toast('Selamat datang kembali, '+u+'! 👋');
-  enterApp();
+
+  const btn = document.getElementById('btnDoLogin');
+  if(btn){ btn.disabled = true; btn.textContent = 'Memeriksa...'; }
+  _gateLoading = true;
+
+  try{
+    const rec = await fsGetUser(u);
+    if(!rec || rec.password !== simpleHash(pw)){
+      drawGate('Username atau password salah.');
+      return;
+    }
+    sessionStorage.setItem('sann_session_user', u);
+    toast('Selamat datang kembali, '+u+'! 👋');
+    enterApp();
+  }catch(e){
+    drawGate('Gagal terhubung ke server. Cek internet lalu coba lagi.');
+  }finally{
+    _gateLoading = false;
+  }
 }
 
-function doRegister(){
+async function doRegister(){
+  if(_gateLoading) return;
   const u = document.getElementById('gtRegUser').value.trim();
   const pw = document.getElementById('gtRegPass').value;
   const pw2 = document.getElementById('gtRegPass2').value;
   if(!u || !pw || !pw2){ drawGate('Semua kolom wajib diisi.'); return; }
-  if(u.length < 3){ drawGate('Username minimal 3 karakter.'); return; }
+  if(!/^[a-zA-Z0-9_]{3,20}$/.test(u)){ drawGate('Username 3-20 karakter, hanya huruf/angka/underscore.'); return; }
   if(pw.length < 4){ drawGate('Password minimal 4 karakter.'); return; }
   if(pw !== pw2){ drawGate('Password dan ulang password tidak sama.'); return; }
-  const users = getUsers();
-  if(users[u]){ drawGate('Username sudah dipakai, pilih yang lain.'); return; }
-  const existingXP = getProfile().xp || 0;
-  users[u] = { password: simpleHash(pw), createdAt: new Date().toDateString(), score: existingXP };
-  saveUsers(users);
-  sessionStorage.setItem('sann_session_user', u);
-  toast('Akun berhasil dibuat! Selamat datang, '+u+' 🎉');
-  enterApp();
+
+  const btn = document.getElementById('btnDoRegister');
+  if(btn){ btn.disabled = true; btn.textContent = 'Mendaftar...'; }
+  _gateLoading = true;
+
+  try{
+    const existing = await fsGetUser(u);
+    if(existing){ drawGate('Username sudah dipakai, pilih yang lain.'); return; }
+
+    const existingXP = getProfile().xp || 0;
+    await fsCreateUser(u, simpleHash(pw), existingXP);
+    sessionStorage.setItem('sann_session_user', u);
+    toast('Akun berhasil dibuat! Selamat datang, '+u+' 🎉');
+    enterApp();
+  }catch(e){
+    console.error(e);
+    drawGate('Gagal mendaftar. Cek internet / rules Firestore lalu coba lagi.');
+  }finally{
+    _gateLoading = false;
+  }
 }
 
 function doAdminLogin(){
@@ -558,41 +740,66 @@ function logout(){
 }
 
 function renderLeaderboard(){
-  const users = getUsers();
-  const rows = Object.entries(users).map(([u,d])=>({u, score:d.score||0})).sort((a,b)=>b.score-a.score);
-  const top = rows[0];
+  // Placeholder dulu, isi async di afterRender
   return `
     <div class="back-link" onclick="nav('home')">← Beranda</div>
     <h1 class="page-title">🏆 Papan Skor</h1>
-    <p class="page-sub">Skor gabungan semua pengguna yang pernah daftar & login di perangkat ini.</p>
-    ${top && top.score>0 ? `<div class="card" style="text-align:center;"><div style="font-size:12px;color:var(--muted);">👑 High Score Tertinggi</div><div style="font-size:18px;font-weight:800;margin-top:2px;">${top.u}</div><div style="color:var(--accent);font-weight:800;font-size:22px;">${top.score} poin</div></div>` : ''}
-    <div class="section-label">Semua Pengguna</div>
-    <div class="tool-list">
-      ${rows.length? rows.map((r,i)=>`<div class="li-row"><div class="li-tx">${i===0 && r.score>0?'🏆 ':''}${r.u}</div><b style="color:var(--accent)">${r.score}</b></div>`).join('') : `<div class="empty-state"><span class="em">🏆</span>Belum ada user terdaftar.</div>`}
-    </div>
+    <p class="page-sub">Skor global semua pengguna (sinkron multi-perangkat via Firebase).</p>
+    <div id="lbBody"><div class="result-box"><div class="lbl">Memuat papan skor...</div></div></div>
   `;
+}
+
+async function loadLeaderboard(){
+  const body = document.getElementById('lbBody');
+  if(!body) return;
+  try{
+    const rows = await fsGetAllUsers();
+    const top = rows[0];
+    body.innerHTML = `
+      ${top && (top.score||0)>0 ? `<div class="card" style="text-align:center;"><div style="font-size:12px;color:var(--muted);">👑 High Score Tertinggi</div><div style="font-size:18px;font-weight:800;margin-top:2px;">${top.u}</div><div style="color:var(--accent);font-weight:800;font-size:22px;">${top.score||0} poin</div></div>` : ''}
+      <div class="section-label">Semua Pengguna (${rows.length})</div>
+      <div class="tool-list">
+        ${rows.length? rows.map((r,i)=>`<div class="li-row"><div class="li-tx">${i===0 && (r.score||0)>0?'🏆 ':''}${r.u}</div><b style="color:var(--accent)">${r.score||0}</b></div>`).join('') : `<div class="empty-state"><span class="em">🏆</span>Belum ada user terdaftar.</div>`}
+      </div>
+    `;
+  }catch(e){
+    body.innerHTML = `<div class="empty-state"><span class="em">⚠️</span>Gagal memuat papan skor.<br><small>Cek koneksi internet.</small></div>`;
+  }
 }
 
 function renderAdminPanel(){
   if(!isAdminSession()) return renderHome();
-  const users = getUsers();
-  const today = new Date().toDateString();
-  const regToday = Object.values(users).filter(u=>u.createdAt===today).length;
-  const rows = Object.entries(users).sort((a,b)=>(b[1].score||0)-(a[1].score||0));
   return `
     <div class="back-link" onclick="nav('home')">← Beranda</div>
     <h1 class="page-title">🛠️ Admin Panel</h1>
     <p class="page-sub">Selamat Datang Kembali Sandrian.</p>
     <div class="stat-row">
-      <div class="s"><b>${Object.keys(users).length}</b><span>Total User</span></div>
-      <div class="s"><b>${regToday}</b><span>Daftar Hari Ini</span></div>
+      <div class="s"><b id="apTotal">...</b><span>Total User</span></div>
+      <div class="s"><b id="apToday">...</b><span>Daftar Hari Ini</span></div>
       <div class="s"><b>${allTools().length}</b><span>Total Tools</span></div>
     </div>
     <div class="section-label">Semua Pengguna Terdaftar</div>
-    <div class="tool-list">
-      ${rows.length? rows.map(([u,d])=>`<div class="li-row"><div class="li-tx">${u}<br><span style="color:var(--muted);font-size:10.5px;">daftar ${d.createdAt}</span></div><b style="color:var(--accent)">${d.score||0}</b></div>`).join('') : `<div class="empty-state">Belum ada user.</div>`}
-    </div>
+    <div id="apList"><div class="result-box"><div class="lbl">Memuat data...</div></div></div>
   `;
+}
+
+async function loadAdminPanel(){
+  const listEl = document.getElementById('apList');
+  if(!listEl) return;
+  try{
+    const rows = await fsGetAllUsers();
+    const today = new Date().toDateString();
+    const regToday = rows.filter(u=>u.createdAt===today).length;
+    const elT = document.getElementById('apTotal');
+    const elD = document.getElementById('apToday');
+    if(elT) elT.textContent = rows.length;
+    if(elD) elD.textContent = regToday;
+    listEl.innerHTML = rows.length
+      ? `<div class="tool-list">${rows.map(d=>`<div class="li-row"><div class="li-tx">${d.u}<br><span style="color:var(--muted);font-size:10.5px;">daftar ${d.createdAt||'-'}</span></div><b style="color:var(--accent)">${d.score||0}</b></div>`).join('')}</div>`
+      : `<div class="empty-state">Belum ada user.</div>`;
+  }catch(e){
+    listEl.innerHTML = `<div class="empty-state"><span class="em">⚠️</span>Gagal memuat data.</div>`;
+  }
 }
 
 /* ============================================================
@@ -632,6 +839,7 @@ const CATS = [
    {id:'selisih-tanggal', em:'📅', nm:'Selisih Tanggal', desc:'Hitung jarak hari antara dua tanggal'},
    {id:'countdown-tanggal', em:'🗓️', nm:'Hitung Hari Menuju Tanggal', desc:'Hitung mundur menuju hari penting'},
    {id:'jam-dunia', em:'🌍', nm:'Jam Dunia', desc:'Lihat waktu dunia nyata di berbagai kota dan zona waktu'},
+   {id:'satuan-waktu', em:'⏳', nm:'Satuan Waktu', desc:'Konversi lengkap satuan waktu: detik, menit, jam, hari, minggu, bulan, tahun'},
  ]},
  {id:'belajar', em:'📚', nm:'Learning Center', desc:'Bahasa, flashcard, kuis', tools:[
    {id:'lang-english', em:'🇬🇧', nm:'English', desc:'Flashcard kosakata dasar Bahasa Inggris'},
@@ -647,7 +855,6 @@ const CATS = [
    {id:'quiz', em:'📝', nm:'Quiz', desc:'Uji kosakata yang sudah dipelajari'},
    {id:'vocab-trainer', em:'🧠', nm:'Vocabulary Trainer', desc:'Latihan hafalan kosakata acak'},
    {id:'tts', em:'🔊', nm:'Text-to-Speech', desc:'Ubah teks menjadi suara (perangkat harus mendukung)'},
-   {id:'kamus', em:'📖', nm:'Kamus (Inggris)', desc:'Cari arti & definisi kata Bahasa Inggris'},
  ]},
  {id:'game', em:'🎮', nm:'Game Center', desc:'Kumpulan game seru', tools:[
    {id:'g-tebakangka', em:'🔢', nm:'Tebak Angka', desc:'Tebak angka rahasia dalam batas tertentu'},
@@ -661,7 +868,17 @@ const CATS = [
    {id:'g-2048', em:'🔢', nm:'2048', desc:'Gabungkan angka hingga mencapai 2048'},
    {id:'g-snake', em:'🐍', nm:'Snake', desc:'Klasik: makan buah, jangan tabrak diri sendiri'},
    {id:'g-sliding', em:'🧩', nm:'Sliding Puzzle', desc:'Susun angka 1-15 berurutan'},
+   {id:'g-sudoku', em:'🔢', nm:'Sudoku', desc:'Isi angka 1-9 tanpa bentrok di baris, kolom, dan kotak'},
+   {id:'g-hangman', em:'🪢', nm:'Hangman', desc:'Tebak kata huruf demi huruf sebelum kesempatan habis'},
+   {id:'g-minesweeper', em:'💣', nm:'Minesweeper', desc:'Buka kotak aman, hindari ranjau'},
+   {id:'g-connect4', em:'🔴', nm:'Connect Four', desc:'Susun 4 warna beruntun sebelum lawan'},
+   {id:'g-whack', em:'🔨', nm:'Whack-a-Mole', desc:'Pukul tikus secepat mungkin dalam waktu terbatas'},
+   {id:'g-stroop', em:'🎨', nm:'Stroop Color', desc:'Sebutkan warna teks, bukan tulisannya — uji fokus!'},
+   {id:'g-catch', em:'🍎', nm:'Catch Fruits', desc:'Tangkap buah yang jatuh, hindari bom'},
+   {id:'g-breakout', em:'🧱', nm:'Breakout', desc:'Hancurkan bata dengan bola & paddle'},
+   {id:'g-terbang', em:'🐤', nm:'Terbang Seru', desc:'Ketuk untuk terbang melewati celah pipa, jangan sampai nabrak'},
  ]},
+
  {id:'harian', em:'🌦️', nm:'Daily Tools', desc:'Cuaca, sholat, kiblat, catatan', tools:[
    {id:'cuaca', em:'🌤️', nm:'Cuaca', desc:'Cek cuaca kota/kabupaten manapun secara real-time'},
    {id:'sholat', em:'🕌', nm:'Jadwal Sholat', desc:'Jadwal sholat berdasarkan lokasi kamu'},
@@ -862,7 +1079,22 @@ function renderProfil(){
   `;
 }
 function gameLabel(k){
-  const m = {'g-2048':'2048 (skor tertinggi)','g-snake':'Snake (skor tertinggi)','g-math':'Math Challenge (skor tertinggi)','g-reaction':'Reaction Test (tercepat, ms)','g-memory':'Memory Card (langkah tersedikit)','g-simon':'Simon Says (level tertinggi)','g-acakkata':'Acak Kata (skor tertinggi)'};
+  const m = {
+    'g-2048':'2048 (skor tertinggi)',
+    'g-snake':'Snake (skor tertinggi)',
+    'g-math':'Math Challenge (skor tertinggi)',
+    'g-reaction':'Reaction Test (tercepat, ms)',
+    'g-memory':'Memory Card (langkah tersedikit)',
+    'g-simon':'Simon Says (level tertinggi)',
+    'g-acakkata':'Acak Kata (skor tertinggi)',
+    'g-whack':'Whack-a-Mole (skor tertinggi)',
+    'g-sliding':'Sliding Puzzle (langkah tersedikit)',
+    'g-tebakangka':'Tebak Angka (percobaan tersedikit)',
+    'g-stroop':'Stroop Color (skor tertinggi)',
+    'g-catch':'Catch Fruits (skor tertinggi)',
+    'g-breakout':'Breakout (skor tertinggi)',
+    'g-terbang':'Terbang Seru (skor tertinggi)'
+  };
   return m[k] || k;
 }
 
@@ -914,6 +1146,8 @@ function afterRender(){
     const inp = document.getElementById('searchInput');
     if(inp) inp.focus();
   }
+  if(currentPage === 'leaderboard') loadLeaderboard();
+  if(currentPage === 'admin-panel') loadAdminPanel();
 }
 
 const TOOL_RENDERERS = {};
@@ -1938,10 +2172,91 @@ TOOL_RENDERERS['jam-dunia'] = (el)=>{
 
   draw();
   clearInterval(window._worldClockTimer);
+
   window._worldClockTimer = setInterval(()=>{
     if(currentPage === 'tool-jam-dunia') draw();
     else clearInterval(window._worldClockTimer);
   },1000);
+};
+
+/* -- Satuan Waktu -- */
+TOOL_RENDERERS['satuan-waktu'] = (el)=>{
+  const units = [
+    {from:'1 detik', to:'1000 milidetik'},
+    {from:'1 menit', to:'60 detik'},
+    {from:'1 jam', to:'60 menit · 3600 detik'},
+    {from:'1 hari', to:'24 jam · 1440 menit · 86400 detik'},
+    {from:'1 minggu', to:'7 hari · 168 jam · 10080 menit'},
+    {from:'1 bulan (rata-rata)', to:'~30,44 hari · ~4,35 minggu · ~730,5 jam'},
+    {from:'1 tahun (biasa)', to:'365 hari · 52 minggu + 1 hari · 8760 jam'},
+    {from:'1 tahun kabisat', to:'366 hari · 8784 jam'},
+    {from:'1 dasawarsa', to:'10 tahun'},
+    {from:'1 abad', to:'100 tahun'},
+    {from:'1 milenium', to:'1000 tahun'},
+  ];
+  const facts = [
+    ['1 jam', '3600 detik'],
+    ['1 hari', '86400 detik'],
+    ['1 minggu', '604800 detik'],
+    ['1 bulan (~)', '2.629.746 detik'],
+    ['1 tahun', '31.536.000 detik'],
+  ];
+  el.innerHTML = `
+    <p class="page-sub">Referensi lengkap satuan waktu dari yang terkecil hingga terbesar.</p>
+    <div class="section-label">📐 Konversi Utama</div>
+    <div class="tool-list">
+      ${units.map(u=>`<div class="li-row"><div class="li-tx"><b>${u.from}</b><div style="font-size:11px;color:var(--muted);margin-top:2px;">${u.to}</div></div></div>`).join('')}
+    </div>
+    <div class="section-label">🔢 Dalam Detik</div>
+    <div class="tool-list">
+      ${facts.map(([a,b])=>`<div class="li-row"><div class="li-tx">${a}</div><b style="color:var(--accent);font-size:13px;">${b}</b></div>`).join('')}
+    </div>
+    <div class="section-label">🧮 Kalkulator Konversi</div>
+    <div class="card">
+      <div class="field"><label>Nilai</label><input type="number" id="swVal" value="1" min="0" step="any"></div>
+      <div class="grid2">
+        <div class="field"><label>Dari</label>
+          <select id="swFrom">
+            <option value="1">Detik</option>
+            <option value="60">Menit</option>
+            <option value="3600" selected>Jam</option>
+            <option value="86400">Hari</option>
+            <option value="604800">Minggu</option>
+            <option value="2629746">Bulan (~)</option>
+            <option value="31536000">Tahun</option>
+          </select>
+        </div>
+        <div class="field"><label>Ke</label>
+          <select id="swTo">
+            <option value="1">Detik</option>
+            <option value="60">Menit</option>
+            <option value="3600">Jam</option>
+            <option value="86400" selected>Hari</option>
+            <option value="604800">Minggu</option>
+            <option value="2629746">Bulan (~)</option>
+            <option value="31536000">Tahun</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn" id="swBtn">Hitung</button>
+    </div>
+    <div id="swRes"></div>
+    <p class="small-note">Catatan: 1 bulan dihitung rata-rata Gregorian (~30,436875 hari). 1 tahun = 365 hari (tahun kabisat 366).</p>
+  `;
+  function calc(){
+    const v = parseFloat(document.getElementById('swVal').value);
+    const from = parseFloat(document.getElementById('swFrom').value);
+    const to = parseFloat(document.getElementById('swTo').value);
+    if(!Number.isFinite(v) || v < 0) return toast('Masukkan angka valid');
+    const result = v * from / to;
+    document.getElementById('swRes').innerHTML = `<div class="result-box"><div class="big">${fmtNum(result,6)}</div><div class="lbl">Hasil konversi</div></div>`;
+    addXP(1);
+  }
+  document.getElementById('swBtn').onclick = calc;
+  document.getElementById('swVal').oninput = calc;
+  document.getElementById('swFrom').onchange = calc;
+  document.getElementById('swTo').onchange = calc;
+  calc();
 };
 
 /* ============================================================
@@ -2398,33 +2713,193 @@ TOOL_RENDERERS['set-tema'] = (el)=>{
   document.getElementById('themeSwitch').onclick = ()=>{ toggleTheme(); nav('tool-set-tema'); };
 };
 TOOL_RENDERERS['set-warna'] = (el)=>{
-  const colors = ['#f2a541','#ff7847','#f87171','#4ade80','#60a5fa','#a78bfa','#f472b6','#22d3ee'];
-  el.innerHTML = `
-    <div class="card">
-      <label>Pilih warna aksen cepat</label>
-      <div class="row wrap" style="gap:10px;">${colors.map(c=>`<div style="width:38px;height:38px;border-radius:50%;background:${c};cursor:pointer;border:2px solid var(--border);" onclick="setAccent('${c}')"></div>`).join('')}</div>
-      <div class="field" style="margin-top:16px;"><label>Atau pilih warna custom</label><input type="color" id="customColor" value="${DB.get('accent','#f2a541')}"></div>
-      <button class="btn" id="applyCustom" style="margin-top:10px;">Terapkan Warna</button>
-    </div>
-  `;
-  document.getElementById('applyCustom').onclick = ()=> setAccent(document.getElementById('customColor').value);
+  const colors = ['#f2a541','#ff7847','#f87171','#4ade80','#60a5fa','#a78bfa','#f472b6','#22d3ee','#facc15','#34d399'];
+  function draw(){
+    const cur = DB.get('accent', '#f2a541');
+    el.innerHTML = `
+      <div class="color-swatch" style="background:${cur};height:80px;border-radius:16px;margin-bottom:12px;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;">
+        <span style="background:rgba(0,0,0,.45);color:#fff;padding:6px 14px;border-radius:20px;font-weight:700;font-size:13px;">${cur.toUpperCase()}</span>
+      </div>
+      <div class="card">
+        <label>Pilih warna aksen cepat</label>
+        <div class="row wrap" style="gap:10px;margin-top:8px;">
+          ${colors.map(c=>`
+            <div data-c="${c}" style="width:40px;height:40px;border-radius:50%;background:${c};cursor:pointer;border:3px solid ${c===cur?'#fff':'var(--border)'};box-shadow:${c===cur?'0 0 0 2px var(--accent)':'none'};transition:.15s;"></div>
+          `).join('')}
+        </div>
+        <div class="field" style="margin-top:18px;">
+          <label>Atau pilih warna custom</label>
+          <input type="color" id="customColor" value="${cur}">
+        </div>
+        <button class="btn" id="applyCustom" style="margin-top:10px;">✨ Terapkan Warna</button>
+      </div>
+      <p class="small-note">Warna aksen langsung diterapkan ke tombol, XP bar, badge, dan elemen utama aplikasi.</p>
+    `;
+    el.querySelectorAll('[data-c]').forEach(dot=>{
+      dot.onclick = ()=>{
+        setAccent(dot.dataset.c);
+        draw();
+      };
+    });
+    document.getElementById('applyCustom').onclick = ()=>{
+      const hex = document.getElementById('customColor').value;
+      setAccent(hex);
+      draw();
+    };
+    document.getElementById('customColor').oninput = (e)=>{
+      const hex = e.target.value;
+      document.documentElement.style.setProperty('--accent', hex);
+      try {
+        const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+        const lighten = (c) => Math.min(255, Math.round(c + (255-c)*0.25));
+        const a2 = '#' + [lighten(r),lighten(g),lighten(b)].map(x=>x.toString(16).padStart(2,'0')).join('');
+        document.documentElement.style.setProperty('--accent2', a2);
+      } catch(_){}
+    };
+  }
+  draw();
 };
 
 /* ============================================================
    LEARNING CENTER
    ============================================================ */
 const VOCAB = {
-  english:{flag:'🇬🇧', voice:'en-US', data:[['Hello','Halo'],['Thank you','Terima kasih'],['Water','Air'],['Food','Makanan'],['Friend','Teman'],['House','Rumah'],['Book','Buku'],['School','Sekolah'],['Love','Cinta'],['Happy','Bahagia'],['Beautiful','Cantik/Indah'],['Family','Keluarga'],['Work','Kerja'],['Time','Waktu'],['Money','Uang']]},
-  japanese:{flag:'🇯🇵', voice:'ja-JP', data:[['こんにちは (Konnichiwa)','Halo'],['ありがとう (Arigatou)','Terima kasih'],['水 (Mizu)','Air'],['食べ物 (Tabemono)','Makanan'],['友達 (Tomodachi)','Teman'],['家 (Ie)','Rumah'],['本 (Hon)','Buku'],['学校 (Gakkou)','Sekolah'],['愛 (Ai)','Cinta'],['幸せ (Shiawase)','Bahagia']]},
-  korean:{flag:'🇰🇷', voice:'ko-KR', data:[['안녕하세요 (Annyeonghaseyo)','Halo'],['감사합니다 (Gamsahamnida)','Terima kasih'],['물 (Mul)','Air'],['음식 (Eumsik)','Makanan'],['친구 (Chingu)','Teman'],['집 (Jip)','Rumah'],['책 (Chaek)','Buku'],['학교 (Hakgyo)','Sekolah'],['사랑 (Sarang)','Cinta'],['행복 (Haengbok)','Bahagia']]},
-  chinese:{flag:'🇨🇳', voice:'zh-CN', data:[['你好 (Nǐ hǎo)','Halo'],['谢谢 (Xièxiè)','Terima kasih'],['水 (Shuǐ)','Air'],['食物 (Shíwù)','Makanan'],['朋友 (Péngyǒu)','Teman'],['家 (Jiā)','Rumah'],['书 (Shū)','Buku'],['学校 (Xuéxiào)','Sekolah'],['爱 (Ài)','Cinta'],['快乐 (Kuàilè)','Bahagia']]},
-  arabic:{flag:'🇸🇦', voice:'ar-SA', data:[['مرحبا (Marhaban)','Halo'],['شكرا (Shukran)','Terima kasih'],['ماء (Maa\')','Air'],['طعام (Ta\'am)','Makanan'],['صديق (Sadiq)','Teman'],['بيت (Bait)','Rumah'],['كتاب (Kitab)','Buku'],['مدرسة (Madrasah)','Sekolah'],['حب (Hubb)','Cinta'],['سعيد (Sa\'id)','Bahagia']]},
-  german:{flag:'🇩🇪', voice:'de-DE', data:[['Hallo','Halo'],['Danke','Terima kasih'],['Wasser','Air'],['Essen','Makanan'],['Freund','Teman'],['Haus','Rumah'],['Buch','Buku'],['Schule','Sekolah'],['Liebe','Cinta'],['Glücklich','Bahagia']]},
-  spanish:{flag:'🇪🇸', voice:'es-ES', data:[['Hola','Halo'],['Gracias','Terima kasih'],['Agua','Air'],['Comida','Makanan'],['Amigo','Teman'],['Casa','Rumah'],['Libro','Buku'],['Escuela','Sekolah'],['Amor','Cinta'],['Feliz','Bahagia']]},
-  hiragana:{flag:'🇯🇵', voice:'ja-JP', data:[['あ','a'],['い','i'],['う','u'],['え','e'],['お','o'],['か','ka'],['き','ki'],['く','ku'],['け','ke'],['こ','ko'],['さ','sa'],['し','shi'],['す','su'],['せ','se'],['そ','so']]},
-  katakana:{flag:'🇯🇵', voice:'ja-JP', data:[['ア','a'],['イ','i'],['ウ','u'],['エ','e'],['オ','o'],['カ','ka'],['キ','ki'],['ク','ku'],['ケ','ke'],['コ','ko'],['サ','sa'],['シ','shi'],['ス','su'],['セ','se'],['ソ','so']]},
-  kanji:{flag:'🈶', voice:'ja-JP', data:[['日 (Hi/Nichi)','Matahari/Hari'],['月 (Tsuki/Getsu)','Bulan'],['水 (Mizu/Sui)','Air'],['木 (Ki/Moku)','Pohon'],['火 (Hi/Ka)','Api'],['人 (Hito/Jin)','Orang'],['山 (Yama/San)','Gunung'],['川 (Kawa/Sen)','Sungai'],['大 (Ō/Dai)','Besar'],['小 (Chii/Shō)','Kecil']]},
+  english:{flag:'🇬🇧', voice:'en-US', data:[
+    ['Hello','Halo'],['Thank you','Terima kasih'],['Please','Tolong'],['Sorry','Maaf'],['Yes','Ya'],['No','Tidak'],
+    ['Water','Air'],['Food','Makanan'],['Friend','Teman'],['House','Rumah'],['Book','Buku'],['School','Sekolah'],
+    ['Love','Cinta'],['Happy','Bahagia'],['Beautiful','Cantik/Indah'],['Family','Keluarga'],['Work','Kerja'],['Time','Waktu'],
+    ['Money','Uang'],['Good morning','Selamat pagi'],['Good night','Selamat malam'],['How are you?','Apa kabar?'],
+    ['I am fine','Saya baik-baik saja'],['Name','Nama'],['What','Apa'],['Where','Di mana'],['When','Kapan'],['Why','Mengapa'],
+    ['Who','Siapa'],['Help','Bantuan'],['Eat','Makan'],['Drink','Minum'],['Sleep','Tidur'],['Walk','Jalan'],
+    ['Run','Lari'],['Read','Membaca'],['Write','Menulis'],['Listen','Mendengar'],['Speak','Berbicara'],['See','Melihat'],
+    ['Today','Hari ini'],['Tomorrow','Besok'],['Yesterday','Kemarin'],['Day','Hari'],['Night','Malam'],['Sun','Matahari'],
+    ['Moon','Bulan'],['Star','Bintang'],['Rain','Hujan'],['Hot','Panas'],['Cold','Dingin'],['Big','Besar'],['Small','Kecil']
+  ]},
+  japanese:{flag:'🇯🇵', voice:'ja-JP', data:[
+    ['こんにちは (Konnichiwa)','Halo'],['ありがとう (Arigatou)','Terima kasih'],['お願いします (Onegaishimasu)','Tolong'],
+    ['すみません (Sumimasen)','Maaf/Permisi'],['はい (Hai)','Ya'],['いいえ (Iie)','Tidak'],
+    ['水 (Mizu)','Air'],['食べ物 (Tabemono)','Makanan'],['友達 (Tomodachi)','Teman'],['家 (Ie)','Rumah'],
+    ['本 (Hon)','Buku'],['学校 (Gakkou)','Sekolah'],['愛 (Ai)','Cinta'],['幸せ (Shiawase)','Bahagia'],
+    ['美しい (Utsukushii)','Cantik/Indah'],['家族 (Kazoku)','Keluarga'],['仕事 (Shigoto)','Kerja'],['時間 (Jikan)','Waktu'],
+    ['お金 (Okane)','Uang'],['おはよう (Ohayou)','Selamat pagi'],['おやすみ (Oyasumi)','Selamat malam'],
+    ['元気ですか (Genki desu ka)','Apa kabar?'],['名前 (Namae)','Nama'],['何 (Nani)','Apa'],['どこ (Doko)','Di mana'],
+    ['いつ (Itsu)','Kapan'],['なぜ (Naze)','Mengapa'],['誰 (Dare)','Siapa'],['食べる (Taberu)','Makan'],
+    ['飲む (Nomu)','Minum'],['寝る (Neru)','Tidur'],['歩く (Aruku)','Jalan'],['走る (Hashiru)','Lari'],
+    ['読む (Yomu)','Membaca'],['書く (Kaku)','Menulis'],['聞く (Kiku)','Mendengar'],['話す (Hanasu)','Berbicara'],
+    ['見る (Miru)','Melihat'],['今日 (Kyou)','Hari ini'],['明日 (Ashita)','Besok'],['昨日 (Kinou)','Kemarin'],
+    ['太陽 (Taiyou)','Matahari'],['月 (Tsuki)','Bulan'],['星 (Hoshi)','Bintang'],['雨 (Ame)','Hujan'],
+    ['暑い (Atsui)','Panas'],['寒い (Samui)','Dingin'],['大きい (Ookii)','Besar'],['小さい (Chiisai)','Kecil']
+  ]},
+  korean:{flag:'🇰🇷', voice:'ko-KR', data:[
+    ['안녕하세요 (Annyeonghaseyo)','Halo'],['감사합니다 (Gamsahamnida)','Terima kasih'],['부탁합니다 (Butakhamnida)','Tolong'],
+    ['죄송합니다 (Joesonghamnida)','Maaf'],['네 (Ne)','Ya'],['아니요 (Aniyo)','Tidak'],
+    ['물 (Mul)','Air'],['음식 (Eumsik)','Makanan'],['친구 (Chingu)','Teman'],['집 (Jip)','Rumah'],
+    ['책 (Chaek)','Buku'],['학교 (Hakgyo)','Sekolah'],['사랑 (Sarang)','Cinta'],['행복 (Haengbok)','Bahagia'],
+    ['아름다운 (Areumdaun)','Cantik/Indah'],['가족 (Gajok)','Keluarga'],['일 (Il)','Kerja'],['시간 (Sigan)','Waktu'],
+    ['돈 (Don)','Uang'],['좋은 아침 (Joeun achim)','Selamat pagi'],['잘 자 (Jal ja)','Selamat malam'],
+    ['어떻게 지내세요 (Eotteoke jinaeseyo)','Apa kabar?'],['이름 (Ireum)','Nama'],['무엇 (Mueot)','Apa'],
+    ['어디 (Eodi)','Di mana'],['언제 (Eonje)','Kapan'],['왜 (Wae)','Mengapa'],['누구 (Nugu)','Siapa'],
+    ['먹다 (Meokda)','Makan'],['마시다 (Masida)','Minum'],['자다 (Jada)','Tidur'],['걷다 (Geotda)','Jalan'],
+    ['달리다 (Dallida)','Lari'],['읽다 (Ikda)','Membaca'],['쓰다 (Sseuda)','Menulis'],['듣다 (Deutda)','Mendengar'],
+    ['말하다 (Malhada)','Berbicara'],['보다 (Boda)','Melihat'],['오늘 (Oneul)','Hari ini'],['내일 (Naeil)','Besok'],
+    ['어제 (Eoje)','Kemarin'],['해 (Hae)','Matahari'],['달 (Dal)','Bulan'],['별 (Byeol)','Bintang'],
+    ['비 (Bi)','Hujan'],['더운 (Deoun)','Panas'],['추운 (Chuun)','Dingin'],['큰 (Keun)','Besar'],['작은 (Jageun)','Kecil']
+  ]},
+  chinese:{flag:'🇨🇳', voice:'zh-CN', data:[
+    ['你好 (Nǐ hǎo)','Halo'],['谢谢 (Xièxiè)','Terima kasih'],['请 (Qǐng)','Tolong'],['对不起 (Duìbuqǐ)','Maaf'],
+    ['是 (Shì)','Ya'],['不 (Bù)','Tidak'],['水 (Shuǐ)','Air'],['食物 (Shíwù)','Makanan'],['朋友 (Péngyǒu)','Teman'],
+    ['家 (Jiā)','Rumah'],['书 (Shū)','Buku'],['学校 (Xuéxiào)','Sekolah'],['爱 (Ài)','Cinta'],['快乐 (Kuàilè)','Bahagia'],
+    ['美丽 (Měilì)','Cantik/Indah'],['家庭 (Jiātíng)','Keluarga'],['工作 (Gōngzuò)','Kerja'],['时间 (Shíjiān)','Waktu'],
+    ['钱 (Qián)','Uang'],['早上好 (Zǎoshang hǎo)','Selamat pagi'],['晚安 (Wǎn\'ān)','Selamat malam'],
+    ['你好吗 (Nǐ hǎo ma)','Apa kabar?'],['名字 (Míngzi)','Nama'],['什么 (Shénme)','Apa'],['哪里 (Nǎlǐ)','Di mana'],
+    ['什么时候 (Shénme shíhou)','Kapan'],['为什么 (Wèishéme)','Mengapa'],['谁 (Shéi)','Siapa'],
+    ['吃 (Chī)','Makan'],['喝 (Hē)','Minum'],['睡觉 (Shuìjiào)','Tidur'],['走 (Zǒu)','Jalan'],['跑 (Pǎo)','Lari'],
+    ['读 (Dú)','Membaca'],['写 (Xiě)','Menulis'],['听 (Tīng)','Mendengar'],['说 (Shuō)','Berbicara'],['看 (Kàn)','Melihat'],
+    ['今天 (Jīntiān)','Hari ini'],['明天 (Míngtiān)','Besok'],['昨天 (Zuótiān)','Kemarin'],
+    ['太阳 (Tàiyáng)','Matahari'],['月亮 (Yuèliang)','Bulan'],['星星 (Xīngxing)','Bintang'],['雨 (Yǔ)','Hujan'],
+    ['热 (Rè)','Panas'],['冷 (Lěng)','Dingin'],['大 (Dà)','Besar'],['小 (Xiǎo)','Kecil']
+  ]},
+  arabic:{flag:'🇸🇦', voice:'ar-SA', data:[
+    ['مرحبا (Marhaban)','Halo'],['شكرا (Shukran)','Terima kasih'],['من فضلك (Min fadlik)','Tolong'],
+    ['آسف (Aasif)','Maaf'],['نعم (Naam)','Ya'],['لا (Laa)','Tidak'],['ماء (Maa\')','Air'],
+    ['طعام (Ta\'am)','Makanan'],['صديق (Sadiq)','Teman'],['بيت (Bait)','Rumah'],['كتاب (Kitab)','Buku'],
+    ['مدرسة (Madrasah)','Sekolah'],['حب (Hubb)','Cinta'],['سعيد (Sa\'id)','Bahagia'],
+    ['جميل (Jameel)','Cantik/Indah'],['عائلة (Aa\'ila)','Keluarga'],['عمل (Amal)','Kerja'],['وقت (Waqt)','Waktu'],
+    ['مال (Maal)','Uang'],['صباح الخير (Sabah al-khair)','Selamat pagi'],['تصبح على خير (Tisbah ala khair)','Selamat malam'],
+    ['كيف حالك (Kayfa haluk)','Apa kabar?'],['اسم (Ism)','Nama'],['ماذا (Maadha)','Apa'],['أين (Ayna)','Di mana'],
+    ['متى (Mataa)','Kapan'],['لماذا (Limaadha)','Mengapa'],['من (Man)','Siapa'],
+    ['أكل (Akala)','Makan'],['شرب (Shariba)','Minum'],['نام (Naama)','Tidur'],['مشي (Mashaa)','Jalan'],
+    ['جرى (Jaraa)','Lari'],['قرأ (Qara\'a)','Membaca'],['كتب (Kataba)','Menulis'],['سمع (Sami\'a)','Mendengar'],
+    ['تكلم (Takallama)','Berbicara'],['رأى (Ra\'aa)','Melihat'],['اليوم (Al-yawm)','Hari ini'],
+    ['غدا (Ghadan)','Besok'],['أمس (Ams)','Kemarin'],['شمس (Shams)','Matahari'],['قمر (Qamar)','Bulan'],
+    ['نجمة (Najma)','Bintang'],['مطر (Matar)','Hujan'],['حار (Haar)','Panas'],['بارد (Baarid)','Dingin'],
+    ['كبير (Kabeer)','Besar'],['صغير (Sagheer)','Kecil']
+  ]},
+  german:{flag:'🇩🇪', voice:'de-DE', data:[
+    ['Hallo','Halo'],['Danke','Terima kasih'],['Bitte','Tolong/Sama-sama'],['Entschuldigung','Maaf'],
+    ['Ja','Ya'],['Nein','Tidak'],['Wasser','Air'],['Essen','Makanan'],['Freund','Teman'],['Haus','Rumah'],
+    ['Buch','Buku'],['Schule','Sekolah'],['Liebe','Cinta'],['Glücklich','Bahagia'],['Schön','Cantik/Indah'],
+    ['Familie','Keluarga'],['Arbeit','Kerja'],['Zeit','Waktu'],['Geld','Uang'],['Guten Morgen','Selamat pagi'],
+    ['Gute Nacht','Selamat malam'],['Wie geht\'s?','Apa kabar?'],['Name','Nama'],['Was','Apa'],
+    ['Wo','Di mana'],['Wann','Kapan'],['Warum','Mengapa'],['Wer','Siapa'],['Essen','Makan'],
+    ['Trinken','Minum'],['Schlafen','Tidur'],['Gehen','Jalan'],['Laufen','Lari'],['Lesen','Membaca'],
+    ['Schreiben','Menulis'],['Hören','Mendengar'],['Sprechen','Berbicara'],['Sehen','Melihat'],
+    ['Heute','Hari ini'],['Morgen','Besok'],['Gestern','Kemarin'],['Sonne','Matahari'],['Mond','Bulan'],
+    ['Stern','Bintang'],['Regen','Hujan'],['Heiß','Panas'],['Kalt','Dingin'],['Groß','Besar'],['Klein','Kecil']
+  ]},
+  spanish:{flag:'🇪🇸', voice:'es-ES', data:[
+    ['Hola','Halo'],['Gracias','Terima kasih'],['Por favor','Tolong'],['Lo siento','Maaf'],
+    ['Sí','Ya'],['No','Tidak'],['Agua','Air'],['Comida','Makanan'],['Amigo','Teman'],['Casa','Rumah'],
+    ['Libro','Buku'],['Escuela','Sekolah'],['Amor','Cinta'],['Feliz','Bahagia'],['Hermoso','Cantik/Indah'],
+    ['Familia','Keluarga'],['Trabajo','Kerja'],['Tiempo','Waktu'],['Dinero','Uang'],['Buenos días','Selamat pagi'],
+    ['Buenas noches','Selamat malam'],['¿Cómo estás?','Apa kabar?'],['Nombre','Nama'],['Qué','Apa'],
+    ['Dónde','Di mana'],['Cuándo','Kapan'],['Por qué','Mengapa'],['Quién','Siapa'],['Comer','Makan'],
+    ['Beber','Minum'],['Dormir','Tidur'],['Caminar','Jalan'],['Correr','Lari'],['Leer','Membaca'],
+    ['Escribir','Menulis'],['Escuchar','Mendengar'],['Hablar','Berbicara'],['Ver','Melihat'],
+    ['Hoy','Hari ini'],['Mañana','Besok'],['Ayer','Kemarin'],['Sol','Matahari'],['Luna','Bulan'],
+    ['Estrella','Bintang'],['Lluvia','Hujan'],['Caliente','Panas'],['Frío','Dingin'],['Grande','Besar'],['Pequeño','Kecil']
+  ]},
+  hiragana:{flag:'🇯🇵', voice:'ja-JP', data:[
+    ['あ','a'],['い','i'],['う','u'],['え','e'],['お','o'],
+    ['か','ka'],['き','ki'],['く','ku'],['け','ke'],['こ','ko'],
+    ['さ','sa'],['し','shi'],['す','su'],['せ','se'],['そ','so'],
+    ['た','ta'],['ち','chi'],['つ','tsu'],['て','te'],['と','to'],
+    ['な','na'],['に','ni'],['ぬ','nu'],['ね','ne'],['の','no'],
+    ['は','ha'],['ひ','hi'],['ふ','fu'],['へ','he'],['ほ','ho'],
+    ['ま','ma'],['み','mi'],['む','mu'],['め','me'],['も','mo'],
+    ['や','ya'],['ゆ','yu'],['よ','yo'],
+    ['ら','ra'],['り','ri'],['る','ru'],['れ','re'],['ろ','ro'],
+    ['わ','wa'],['を','wo'],['ん','n']
+  ]},
+  katakana:{flag:'🇯🇵', voice:'ja-JP', data:[
+    ['ア','a'],['イ','i'],['ウ','u'],['エ','e'],['オ','o'],
+    ['カ','ka'],['キ','ki'],['ク','ku'],['ケ','ke'],['コ','ko'],
+    ['サ','sa'],['シ','shi'],['ス','su'],['セ','se'],['ソ','so'],
+    ['タ','ta'],['チ','chi'],['ツ','tsu'],['テ','te'],['ト','to'],
+    ['ナ','na'],['ニ','ni'],['ヌ','nu'],['ネ','ne'],['ノ','no'],
+    ['ハ','ha'],['ヒ','hi'],['フ','fu'],['ヘ','he'],['ホ','ho'],
+    ['マ','ma'],['ミ','mi'],['ム','mu'],['メ','me'],['モ','mo'],
+    ['ヤ','ya'],['ユ','yu'],['ヨ','yo'],
+    ['ラ','ra'],['リ','ri'],['ル','ru'],['レ','re'],['ロ','ro'],
+    ['ワ','wa'],['ヲ','wo'],['ン','n']
+  ]},
+  kanji:{flag:'🈶', voice:'ja-JP', data:[
+    ['日 (Hi/Nichi)','Matahari/Hari'],['月 (Tsuki/Getsu)','Bulan'],['水 (Mizu/Sui)','Air'],
+    ['木 (Ki/Moku)','Pohon'],['火 (Hi/Ka)','Api'],['人 (Hito/Jin)','Orang'],
+    ['山 (Yama/San)','Gunung'],['川 (Kawa/Sen)','Sungai'],['大 (Ō/Dai)','Besar'],
+    ['小 (Chii/Shō)','Kecil'],['上 (Ue/Jō)','Atas'],['下 (Shita/Ka)','Bawah'],
+    ['中 (Naka/Chū)','Tengah'],['左 (Hidari/Sa)','Kiri'],['右 (Migi/U)','Kanan'],
+    ['手 (Te/Shu)','Tangan'],['足 (Ashi/Soku)','Kaki'],['目 (Me/Moku)','Mata'],
+    ['口 (Kuchi/Kō)','Mulut'],['耳 (Mimi/Ji)','Telinga'],['心 (Kokoro/Shin)','Hati'],
+    ['力 (Chikara/Ryoku)','Kekuatan'],['学 (Manabu/Gaku)','Belajar'],['校 (Kō)','Sekolah'],
+    ['生 (Iki/Sei)','Hidup'],['先 (Saki/Sen)','Sebelum'],['時 (Toki/Ji)','Waktu'],
+    ['年 (Toshi/Nen)','Tahun'],['今 (Ima/Kon)','Sekarang'],['来 (Kuru/Rai)','Datang'],
+    ['行 (Iku/Kō)','Pergi'],['見 (Miru/Ken)','Melihat'],['聞 (Kiku/Bun)','Mendengar'],
+    ['話 (Hanashi/Wa)','Bicara'],['読 (Yomu/Doku)','Membaca'],['書 (Kaku/Sho)','Menulis'],
+    ['食 (Taberu/Shoku)','Makan'],['飲 (Nomu/In)','Minum'],['休 (Yasumu/Kyū)','Istirahat']
+  ]},
 };
+
 function renderFlashcard(lang, el){
   const set = VOCAB[lang];
   let idx = 0, flipped = false;
@@ -2530,36 +3005,6 @@ TOOL_RENDERERS['tts'] = (el)=>{
     speakText(txt, document.getElementById('ttsLang').value);
     addXP(1);
   };
-};
-
-TOOL_RENDERERS['kamus'] = (el)=>{
-  el.innerHTML = `
-    <div class="card"><div class="row"><input type="text" id="kmInput" placeholder="Cari kata Bahasa Inggris..." style="flex:1;"><button class="btn sm" id="kmBtn">🔍</button></div></div>
-    <div id="kmRes"></div>
-    <p class="small-note">Sumber: Free Dictionary API (Bahasa Inggris).</p>
-  `;
-  async function search(){
-    const q = document.getElementById('kmInput').value.trim();
-    if(!q) return toast('Masukkan kata dulu');
-    const res = document.getElementById('kmRes');
-    res.innerHTML = `<div class="result-box"><div class="lbl">Mencari...</div></div>`;
-    try{
-      const r = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(q)}`);
-      if(!r.ok) throw new Error();
-      const data = await r.json();
-      const entry = data[0];
-      let html = `<div class="card"><b style="font-size:18px;">${entry.word}</b> <span style="color:var(--muted);font-size:13px;">${entry.phonetic||''}</span>`;
-      entry.meanings.slice(0,3).forEach(m=>{
-        html += `<div class="divider"></div><span class="tag">${m.partOfSpeech}</span>`;
-        m.definitions.slice(0,2).forEach(d=>{ html += `<div style="font-size:13.5px;margin-top:6px;">• ${d.definition}</div>`; });
-      });
-      html += `</div>`;
-      res.innerHTML = html;
-      addXP(2);
-    }catch(e){ res.innerHTML = `<div class="empty-state"><span class="em">📖</span>Kata tidak ditemukan atau koneksi bermasalah.</div>`; }
-  }
-  document.getElementById('kmBtn').onclick = search;
-  document.getElementById('kmInput').onkeydown = e=>{ if(e.key==='Enter') search(); };
 };
 
 /* ============================================================
@@ -2982,6 +3427,780 @@ TOOL_RENDERERS['g-sliding'] = (el)=>{
     document.getElementById('pzReset').onclick = ()=>{ init(); draw(); };
   }
   init(); draw();
+};
+
+TOOL_RENDERERS['g-sudoku'] = (el)=>{
+  // Sudoku 9x9
+  const initialBoard = [
+    [5, 3, 0, 0, 7, 0, 0, 0, 0],
+    [6, 0, 0, 1, 9, 5, 0, 0, 0],
+    [0, 9, 8, 0, 0, 0, 0, 6, 0],
+    [8, 0, 0, 0, 6, 0, 0, 0, 3],
+    [4, 0, 0, 8, 0, 3, 0, 0, 1],
+    [7, 0, 0, 0, 2, 0, 0, 0, 6],
+    [0, 6, 0, 0, 0, 0, 2, 8, 0],
+    [0, 0, 0, 4, 1, 9, 0, 0, 5],
+    [0, 0, 0, 0, 8, 0, 0, 7, 9]
+  ];
+
+  const solutionBoard = [
+    [5, 3, 4, 6, 7, 8, 9, 1, 2],
+    [6, 7, 2, 1, 9, 5, 3, 4, 8],
+    [1, 9, 8, 3, 4, 2, 5, 6, 7],
+    [8, 5, 9, 7, 6, 1, 4, 2, 3],
+    [4, 2, 6, 8, 5, 3, 7, 9, 1],
+    [7, 1, 3, 9, 2, 4, 8, 5, 6],
+    [9, 6, 1, 5, 3, 7, 2, 8, 4],
+    [2, 8, 7, 4, 1, 9, 6, 3, 5],
+    [3, 4, 5, 2, 8, 6, 1, 7, 9]
+  ];
+
+  let cells = initialBoard.flat();
+  let fixed = initialBoard.flat().map(v => v !== 0);
+
+  function draw(msg){
+    el.innerHTML = `
+      <p class="page-sub">
+        Isi angka 1–9. Setiap baris, kolom, dan kotak 3×3 harus unik.
+      </p>
+
+      ${msg || ''}
+
+      <div class="sudoku-board" id="sdkBoard">
+        ${cells.map((v,i)=>`
+          <div class="sudoku-cell">
+            <input
+              type="number"
+              min="1"
+              max="9"
+              inputmode="numeric"
+              data-i="${i}"
+              value="${v || ''}"
+              ${fixed[i] ? 'readonly style="opacity:.55;background:var(--surface3);"' : ''}
+            >
+          </div>
+        `).join('')}
+      </div>
+
+      <div class="btn-row" style="margin-top:12px;">
+        <button class="btn secondary" id="sdkCheck">✓ Cek</button>
+        <button class="btn secondary" id="sdkNew">🔄 Puzzle Baru</button>
+      </div>
+    `;
+
+    document
+      .querySelectorAll('#sdkBoard input:not([readonly])')
+      .forEach(inp => {
+
+        inp.oninput = () => {
+          let n = parseInt(inp.value);
+          let i = parseInt(inp.dataset.i);
+
+          if(n < 1 || n > 9 || isNaN(n)){
+            inp.value = '';
+            cells[i] = 0;
+            return;
+          }
+
+          inp.value = n;
+          cells[i] = n;
+        };
+      });
+
+    document.getElementById('sdkCheck').onclick = () => {
+
+      const ok = cells.every((v,i) =>
+        v === solutionBoard.flat()[i]
+      );
+
+      if(ok){
+
+        recordGameWin();
+        addXP(12,'Sudoku selesai');
+
+        draw(`
+          <div class="result-box" style="color:var(--good)">
+            🎉 Benar! Sudoku selesai!
+          </div>
+        `);
+
+      } else {
+
+        let wrong = 0;
+        let empty = 0;
+
+        cells.forEach((v,i)=>{
+          if(v === 0){
+            empty++;
+          } else if(v !== solutionBoard.flat()[i]){
+            wrong++;
+          }
+        });
+
+        if(wrong){
+          toast(`❌ Ada ${wrong} angka yang salah`);
+        } else if(empty){
+          toast(`❌ Masih ada ${empty} kotak yang kosong`);
+        }
+      }
+    };
+
+    document.getElementById('sdkNew').onclick = () => {
+
+      cells = initialBoard.flat();
+      fixed = initialBoard.flat().map(v => v !== 0);
+
+      draw();
+    };
+  }
+
+  draw();
+};
+
+/* -- Hangman -- */
+TOOL_RENDERERS['g-hangman'] = (el)=>{
+  const words = ['KOMPUTER','INDONESIA','MATAHARI','SEKOLAH','PELANGI','GUNUNG','LAUTAN','SEMANGAT','PETUALANGAN','KEBAHAGIAAN','TEKNOLOGI','PERSAHABATAN','KEMERDEKAAN','BINTANG','ANGKASA','HUTAN','SUNGAI','SAWAH','DESA','KUPUKUPU'];
+  let word='', guessed=[], lives=6, over=false;
+  function newGame(){
+    word = words[Math.floor(Math.random()*words.length)];
+    guessed = []; lives=6; over=false;
+  }
+  function displayWord(){
+    return word.split('').map(c=> guessed.includes(c)?c:'_').join(' ');
+  }
+  function hangmanArt(){
+    const stages = [
+      '  +---+\\n  |   |\\n      |\\n      |\\n      |\\n      |\\n=========',
+      '  +---+\\n  |   |\\n  O   |\\n      |\\n      |\\n      |\\n=========',
+      '  +---+\\n  |   |\\n  O   |\\n  |   |\\n      |\\n      |\\n=========',
+      '  +---+\\n  |   |\\n  O   |\\n /|   |\\n      |\\n      |\\n=========',
+      '  +---+\\n  |   |\\n  O   |\\n /|\\\\  |\\n      |\\n      |\\n=========',
+      '  +---+\\n  |   |\\n  O   |\\n /|\\\\  |\\n /    |\\n      |\\n=========',
+      '  +---+\\n  |   |\\n  O   |\\n /|\\\\  |\\n / \\\\  |\\n      |\\n========='
+    ];
+    return stages[6-lives];
+  }
+  function draw(msg){
+    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+    el.innerHTML = `
+      <div class="stat-row"><div class="s"><b>${lives}</b><span>Nyawa</span></div><div class="s"><b>${guessed.length}</b><span>Tebakan</span></div></div>
+      <pre style="font-family:var(--font-mono);font-size:12px;text-align:center;line-height:1.25;color:var(--muted);margin:8px 0;">${hangmanArt()}</pre>
+      <div class="result-box"><div class="big" style="font-size:22px;letter-spacing:3px;">${displayWord()}</div></div>
+      ${msg||''}
+      ${!over ? `<div class="row wrap" style="gap:6px;justify-content:center;margin-top:10px;">
+        ${alphabet.map(l=>`<button class="btn secondary sm" style="min-width:36px;padding:8px 0;${guessed.includes(l)?'opacity:.35;':''}" data-l="${l}" ${guessed.includes(l)?'disabled':''}>${l}</button>`).join('')}
+      </div>` : ''}
+      <button class="btn secondary" id="hmReset" style="margin-top:12px;">🔄 Main Lagi</button>
+    `;
+    if(!over){
+      el.querySelectorAll('[data-l]').forEach(b=>b.onclick=()=>{
+        const l = b.dataset.l;
+        if(guessed.includes(l)||over) return;
+        guessed.push(l);
+        if(!word.includes(l)) lives--;
+        if(lives<=0){
+          over=true;
+          draw(`<div class="result-box" style="color:var(--bad)">💀 Kalah! Kata: <b>${word}</b></div>`);
+          return;
+        }
+        if(word.split('').every(c=>guessed.includes(c))){
+          over=true; recordGameWin(); addXP(10,'Menang Hangman');
+          draw('<div class="result-box" style="color:var(--good)">🎉 Benar! Kamu menang.</div>');
+          return;
+        }
+        draw();
+      });
+    }
+    document.getElementById('hmReset').onclick = ()=>{ newGame(); draw(); };
+  }
+  newGame(); draw();
+};
+
+/* -- Minesweeper mini 8x8 -- */
+TOOL_RENDERERS['g-minesweeper'] = (el)=>{
+  const SIZE=8, MINES=10;
+  let board, revealed, flagged, over, won;
+  function init(){
+    board = Array(SIZE*SIZE).fill(0);
+    revealed = Array(SIZE*SIZE).fill(false);
+    flagged = Array(SIZE*SIZE).fill(false);
+    over=false; won=false;
+    let placed=0;
+    while(placed<MINES){
+      const i = Math.floor(Math.random()*SIZE*SIZE);
+      if(board[i]===-1) continue;
+      board[i]=-1; placed++;
+    }
+    for(let i=0;i<SIZE*SIZE;i++){
+      if(board[i]===-1) continue;
+      let n=0;
+      const r=Math.floor(i/SIZE), c=i%SIZE;
+      for(let dr=-1;dr<=1;dr++) for(let dc=-1;dc<=1;dc++){
+        const nr=r+dr, nc=c+dc;
+        if(nr>=0&&nr<SIZE&&nc>=0&&nc<SIZE&&board[nr*SIZE+nc]===-1) n++;
+      }
+      board[i]=n;
+    }
+  }
+  function flood(i){
+    if(revealed[i]||flagged[i]||board[i]===-1) return;
+    revealed[i]=true;
+    if(board[i]===0){
+      const r=Math.floor(i/SIZE), c=i%SIZE;
+      for(let dr=-1;dr<=1;dr++) for(let dc=-1;dc<=1;dc++){
+        const nr=r+dr, nc=c+dc;
+        if(nr>=0&&nr<SIZE&&nc>=0&&nc<SIZE) flood(nr*SIZE+nc);
+      }
+    }
+  }
+  function checkWin(){
+    const safe = board.filter(v=>v!==-1).length;
+    const opened = revealed.filter(Boolean).length;
+    if(opened>=safe){ won=true; over=true; recordGameWin(); addXP(15,'Minesweeper selesai'); }
+  }
+  function draw(){
+    const left = MINES - flagged.filter(Boolean).length;
+    el.innerHTML = `
+      <div class="stat-row"><div class="s"><b>${left}</b><span>Ranjau</span></div><div class="s"><b>${SIZE}×${SIZE}</b><span>Papan</span></div></div>
+      ${over? (won?'<div class="result-box" style="color:var(--good)">🎉 Semua aman! Menang.</div>':'<div class="result-box" style="color:var(--bad)">💥 Kena ranjau! Game over.</div>') : ''}
+      <div style="display:grid;grid-template-columns:repeat(${SIZE},1fr);gap:3px;max-width:320px;margin:10px auto;">
+        ${board.map((v,i)=>{
+          let bg='var(--surface2)', txt='', content='';
+          if(revealed[i]||(over&&v===-1)){
+            if(v===-1){ content='💣'; bg='rgba(248,113,113,.25)'; }
+            else { content=v||''; bg='var(--surface3)'; txt=v?'var(--accent)':'var(--muted)'; }
+          } else if(flagged[i]){ content='🚩'; }
+          return `<div data-i="${i}" style="aspect-ratio:1;background:${bg};border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:${txt};cursor:pointer;user-select:none;">${content}</div>`;
+        }).join('')}
+      </div>
+      <p class="small-note">Ketuk = buka · Tahan lama / kanan-klik = pasang bendera</p>
+      <button class="btn secondary" id="msReset" style="margin-top:8px;">🔄 Main Lagi</button>
+    `;
+    const cells = el.querySelectorAll('[data-i]');
+    cells.forEach(cell=>{
+      const i = parseInt(cell.dataset.i);
+      cell.onclick = ()=>{
+        if(over||flagged[i]||revealed[i]) return;
+        if(board[i]===-1){ revealed[i]=true; over=true; draw(); return; }
+        flood(i); checkWin(); draw();
+      };
+      cell.oncontextmenu = (e)=>{
+        e.preventDefault();
+        if(over||revealed[i]) return;
+        flagged[i]=!flagged[i]; draw();
+      };
+      let pressTimer;
+      cell.ontouchstart = ()=>{ pressTimer=setTimeout(()=>{ if(!over&&!revealed[i]){ flagged[i]=!flagged[i]; draw(); } }, 450); };
+      cell.ontouchend = ()=> clearTimeout(pressTimer);
+      cell.ontouchmove = ()=> clearTimeout(pressTimer);
+    });
+    document.getElementById('msReset').onclick = ()=>{ init(); draw(); };
+  }
+  init(); draw();
+};
+
+/* -- Connect Four -- */
+TOOL_RENDERERS['g-connect4'] = (el)=>{
+  const ROWS=6, COLS=7;
+  let grid, turn, over;
+  function init(){ grid=Array(ROWS*COLS).fill(0); turn=1; over=false; }
+  function drop(col, player){
+    for(let r=ROWS-1;r>=0;r--){
+      const i=r*COLS+col;
+      if(grid[i]===0){ grid[i]=player; return i; }
+    }
+    return -1;
+  }
+  function checkWin(player){
+    for(let r=0;r<ROWS;r++) for(let c=0;c<=COLS-4;c++){
+      if([0,1,2,3].every(k=>grid[r*COLS+c+k]===player)) return true;
+    }
+    for(let c=0;c<COLS;c++) for(let r=0;r<=ROWS-4;r++){
+      if([0,1,2,3].every(k=>grid[(r+k)*COLS+c]===player)) return true;
+    }
+    for(let r=0;r<=ROWS-4;r++) for(let c=0;c<=COLS-4;c++){
+      if([0,1,2,3].every(k=>grid[(r+k)*COLS+c+k]===player)) return true;
+    }
+    for(let r=3;r<ROWS;r++) for(let c=0;c<=COLS-4;c++){
+      if([0,1,2,3].every(k=>grid[(r-k)*COLS+c+k]===player)) return true;
+    }
+    return false;
+  }
+  function aiMove(){
+    for(let c=0;c<COLS;c++){
+      const tmp=[...grid]; if(drop(c,2)>=0){ if(checkWin(2)){ grid=tmp; drop(c,2); return; } grid=tmp; }
+    }
+    for(let c=0;c<COLS;c++){
+      const tmp=[...grid]; if(drop(c,1)>=0){ if(checkWin(1)){ grid=tmp; drop(c,2); return; } grid=tmp; }
+    }
+    const free=[];
+    for(let c=0;c<COLS;c++) if(grid[c]===0) free.push(c);
+    if(free.length) drop(free[Math.floor(Math.random()*free.length)], 2);
+  }
+  function draw(msg){
+    el.innerHTML = `
+      <div class="stat-row"><div class="s"><b style="color:#f87171;">🔴</b><span>Kamu</span></div><div class="s"><b style="color:#facc15;">🟡</b><span>Komputer</span></div></div>
+      ${msg||''}
+      <div style="display:grid;grid-template-columns:repeat(${COLS},1fr);gap:4px;max-width:320px;margin:10px auto;">
+        ${Array(COLS).fill(0).map((_,c)=>`<button class="btn secondary sm" data-c="${c}" ${over?'disabled':''} style="padding:6px 0;">▼</button>`).join('')}
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(${COLS},1fr);gap:4px;max-width:320px;margin:0 auto;background:var(--surface2);padding:8px;border-radius:14px;">
+        ${grid.map(v=>{
+          const color = v===1?'#f87171':v===2?'#facc15':'var(--surface3)';
+          return `<div style="aspect-ratio:1;border-radius:50%;background:${color};"></div>`;
+        }).join('')}
+      </div>
+      <button class="btn secondary" id="c4Reset" style="margin-top:12px;">🔄 Main Lagi</button>
+    `;
+    el.querySelectorAll('[data-c]').forEach(b=>b.onclick=()=>{
+      if(over||turn!==1) return;
+      const col = parseInt(b.dataset.c);
+      if(grid[col]!==0) return toast('Kolom penuh');
+      drop(col,1);
+      if(checkWin(1)){ over=true; recordGameWin(); addXP(10,'Menang Connect Four'); draw('<div class="result-box" style="color:var(--good)">🎉 Kamu menang!</div>'); return; }
+      if(grid.every(v=>v!==0)){ over=true; draw('<div class="result-box">🤝 Seri!</div>'); return; }
+      turn=2; draw();
+      setTimeout(()=>{
+        aiMove();
+        if(checkWin(2)){ over=true; draw('<div class="result-box" style="color:var(--bad)">😢 Komputer menang!</div>'); return; }
+        if(grid.every(v=>v!==0)){ over=true; draw('<div class="result-box">🤝 Seri!</div>'); return; }
+        turn=1; draw();
+      }, 350);
+    });
+    document.getElementById('c4Reset').onclick = ()=>{ init(); draw(); };
+  }
+  init(); draw();
+};
+
+/* -- Whack-a-Mole -- */
+TOOL_RENDERERS['g-whack'] = (el)=>{
+  let score=0, timeLeft=30, iv=null, mole=-1, playing=false;
+  function draw(){
+    el.innerHTML = `
+      <div class="stat-row"><div class="s"><b id="wmScore">${score}</b><span>Skor</span></div><div class="s"><b id="wmTime">${timeLeft}s</b><span>Waktu</span></div></div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:280px;margin:14px auto;">
+        ${[0,1,2,3,4,5,6,7,8].map(i=>`
+          <div class="wm-hole" data-i="${i}" style="aspect-ratio:1;background:var(--surface2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:36px;cursor:pointer;border:2px solid var(--border);">
+            ${mole===i?'🐹':''}
+          </div>`).join('')}
+      </div>
+      ${playing?'':'<button class="btn" id="wmStart">▶️ Mulai (30 detik)</button>'}
+      ${!playing && score>0 ? `<div class="result-box" style="margin-top:10px;"><div class="big">${score}</div><div class="lbl">Skor akhir</div></div>`:''}
+    `;
+    if(playing){
+      el.querySelectorAll('.wm-hole').forEach(h=>h.onclick=()=>{
+        const i=parseInt(h.dataset.i);
+        if(i===mole){ score++; mole=-1; const s=document.getElementById('wmScore'); if(s) s.textContent=score; h.textContent=''; if(navigator.vibrate) navigator.vibrate(15); }
+      });
+    } else {
+      const btn=document.getElementById('wmStart');
+      if(btn) btn.onclick = start;
+    }
+  }
+  function start(){
+    score=0; timeLeft=30; playing=true; mole=-1; draw();
+    clearInterval(iv);
+    iv = setInterval(()=>{
+      timeLeft--;
+      const tEl=document.getElementById('wmTime');
+      if(tEl) tEl.textContent=timeLeft+'s';
+      mole = Math.floor(Math.random()*9);
+      draw();
+      setTimeout(()=>{ if(playing){ mole=-1; draw(); } }, 700);
+      if(timeLeft<=0){
+        clearInterval(iv); playing=false; mole=-1;
+        saveHighscore('g-whack', score);
+        if(score>0) recordGameWin();
+        addXP(Math.min(20, score),'Whack-a-Mole selesai');
+        toast('⏱️ Waktu habis! Skor: '+score);
+        draw();
+      }
+    }, 1000);
+  }
+  draw();
+};
+
+/* -- Stroop Color -- */
+TOOL_RENDERERS['g-stroop'] = (el)=>{
+  const colorNames = ['MERAH','HIJAU','BIRU','KUNING','UNGU','ORANYE'];
+  const colorHex = {'MERAH':'#f87171','HIJAU':'#4ade80','BIRU':'#60a5fa','KUNING':'#facc15','UNGU':'#a78bfa','ORANYE':'#fb923c'};
+  let score=0, timeLeft=30, playing=false, iv=null, currentName='', currentColor='';
+  function newRound(){
+    currentName = colorNames[Math.floor(Math.random()*colorNames.length)];
+    let cols = Object.keys(colorHex);
+    currentColor = cols[Math.floor(Math.random()*cols.length)];
+    if(Math.random() < 0.7){
+      while(currentColor === currentName) currentColor = cols[Math.floor(Math.random()*cols.length)];
+    } else {
+      currentColor = currentName;
+    }
+  }
+  function draw(){
+    el.innerHTML = `
+      <div class="stat-row"><div class="s"><b id="stScore">${score}</b><span>Skor</span></div><div class="s"><b id="stTime">${timeLeft}s</b><span>Waktu</span></div></div>
+      ${playing ? `
+        <div class="result-box" style="padding:28px 10px;"><div class="big" style="font-size:36px;color:${colorHex[currentColor]};">${currentName}</div><div class="lbl">Pilih WARNA tulisan (bukan teksnya)</div></div>
+        <div class="grid3" style="gap:8px;">
+          ${Object.keys(colorHex).map(c=>`<button class="btn secondary" data-c="${c}" style="padding:14px 0;background:${colorHex[c]};color:#111;border:none;font-weight:800;">${c}</button>`).join('')}
+        </div>
+      ` : `<button class="btn" id="stStart">▶️ Mulai (30 detik)</button>
+        ${score>0?`<div class="result-box" style="margin-top:12px;"><div class="big">${score}</div><div class="lbl">Skor akhir</div></div>`:''}`}
+      <p class="small-note">Efek Stroop: sebutkan warna tinta, bukan kata yang tertulis. Fokus!</p>
+    `;
+    if(playing){
+      el.querySelectorAll('[data-c]').forEach(b=>b.onclick=()=>{
+        if(b.dataset.c === currentColor){
+          score++; addXP(1);
+          newRound(); draw();
+        } else {
+          toast('❌ Salah!');
+          newRound(); draw();
+        }
+      });
+    } else {
+      const btn = document.getElementById('stStart');
+      if(btn) btn.onclick = ()=>{
+        score=0; timeLeft=30; playing=true; newRound(); draw();
+        clearInterval(iv);
+        iv = setInterval(()=>{
+          timeLeft--;
+          const t = document.getElementById('stTime'); if(t) t.textContent = timeLeft+'s';
+          if(timeLeft<=0){
+            clearInterval(iv); playing=false;
+            saveHighscore('g-stroop', score);
+            if(score>0) recordGameWin();
+            addXP(Math.min(20,score),'Stroop selesai');
+            toast('⏱️ Waktu habis! Skor: '+score);
+            draw();
+          }
+        },1000);
+      };
+    }
+  }
+  draw();
+};
+
+/* -- Catch Fruits -- */
+TOOL_RENDERERS['g-catch'] = (el)=>{
+  el.innerHTML = `
+    <div class="stat-row"><div class="s"><b id="cfScore">0</b><span>Skor</span></div><div class="s"><b id="cfLives">3</b><span>Nyawa</span></div></div>
+    <canvas id="catchCanvas" width="320" height="400" style="width:100%;max-width:320px;display:block;margin:0 auto;background:var(--surface2);border-radius:14px;touch-action:none;"></canvas>
+    <button class="btn" id="cfStart" style="margin-top:12px;">▶️ Mulai</button>
+    <p class="small-note">Geser paddle kiri-kanan (mouse/touch). Tangkap buah 🍎🍊🍇, hindari bom 💣.</p>
+  `;
+  const canvas = document.getElementById('catchCanvas');
+  const ctx = canvas.getContext('2d');
+  let score=0, lives=3, items=[], paddle={x:120,w:80,h:14}, playing=false, raf=null, lastSpawn=0;
+  const fruits = ['🍎','🍊','🍇','🍓','🍌'];
+  function spawn(){
+    const isBomb = Math.random() < 0.22;
+    items.push({
+      x: Math.random()*(canvas.width-30)+5,
+      y: -30,
+      vy: 2.2 + Math.random()*2.5 + score*0.05,
+      emoji: isBomb ? '💣' : fruits[Math.floor(Math.random()*fruits.length)],
+      bomb: isBomb,
+      size: 26
+    });
+  }
+  function loop(ts){
+    if(!playing) return;
+    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--surface2').trim() || '#1d2233';
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#f2a541';
+    ctx.fillRect(paddle.x, canvas.height-28, paddle.w, paddle.h);
+    if(ts - lastSpawn > Math.max(400, 900 - score*8)){ spawn(); lastSpawn = ts; }
+    for(let i=items.length-1;i>=0;i--){
+      const it = items[i];
+      it.y += it.vy;
+      ctx.font = it.size+'px serif';
+      ctx.fillText(it.emoji, it.x, it.y);
+      if(it.y > canvas.height-40 && it.y < canvas.height-10 && it.x+20 > paddle.x && it.x < paddle.x+paddle.w){
+        if(it.bomb){ lives--; document.getElementById('cfLives').textContent=lives; if(navigator.vibrate) navigator.vibrate(40); }
+        else { score++; document.getElementById('cfScore').textContent=score; addXP(1); }
+        items.splice(i,1);
+        if(lives<=0){ endGame(); return; }
+        continue;
+      }
+      if(it.y > canvas.height+20){
+        if(!it.bomb){ lives--; document.getElementById('cfLives').textContent=lives; }
+        items.splice(i,1);
+        if(lives<=0){ endGame(); return; }
+      }
+    }
+    raf = requestAnimationFrame(loop);
+  }
+  function endGame(){
+    playing=false;
+    cancelAnimationFrame(raf);
+    saveHighscore('g-catch', score);
+    if(score>0) recordGameWin();
+    addXP(Math.min(20,score),'Catch Fruits selesai');
+    toast('💀 Game Over! Skor: '+score);
+    document.getElementById('cfStart').style.display='block';
+  }
+  function movePaddle(clientX){
+    const rect = canvas.getBoundingClientRect();
+    const x = (clientX - rect.left) * (canvas.width / rect.width);
+    paddle.x = Math.max(0, Math.min(canvas.width - paddle.w, x - paddle.w/2));
+  }
+  canvas.addEventListener('mousemove', e=> movePaddle(e.clientX));
+  canvas.addEventListener('touchmove', e=>{ e.preventDefault(); movePaddle(e.touches[0].clientX); }, {passive:false});
+  document.getElementById('cfStart').onclick = ()=>{
+    score=0; lives=3; items=[]; playing=true; lastSpawn=0;
+    document.getElementById('cfScore').textContent=0;
+    document.getElementById('cfLives').textContent=3;
+    document.getElementById('cfStart').style.display='none';
+    cancelAnimationFrame(raf);
+    raf = requestAnimationFrame(loop);
+  };
+};
+
+/* -- Breakout -- */
+TOOL_RENDERERS['g-breakout'] = (el)=>{
+  el.innerHTML = `
+    <div class="stat-row"><div class="s"><b id="boScore">0</b><span>Skor</span></div><div class="s"><b id="boLives">3</b><span>Nyawa</span></div></div>
+    <canvas id="boCanvas" width="320" height="420" style="width:100%;max-width:320px;display:block;margin:0 auto;background:var(--surface2);border-radius:14px;touch-action:none;"></canvas>
+    <button class="btn" id="boStart" style="margin-top:12px;">▶️ Mulai</button>
+    <p class="small-note">Geser paddle. Hancurkan semua bata. Bola memantul otomatis.</p>
+  `;
+  const canvas = document.getElementById('boCanvas');
+  const ctx = canvas.getContext('2d');
+  let score=0, lives=3, bricks=[], ball, paddle, playing=false, raf=null;
+  const rows=5, cols=8, bw=36, bh=14, gap=4, offsetTop=40, offsetLeft=8;
+  function initBricks(){
+    bricks=[];
+    const palette = ['#f87171','#fb923c','#facc15','#4ade80','#60a5fa'];
+    for(let r=0;r<rows;r++) for(let c=0;c<cols;c++){
+      bricks.push({x: offsetLeft + c*(bw+gap), y: offsetTop + r*(bh+gap), w:bw, h:bh, alive:true, color:palette[r]});
+    }
+  }
+  function resetBall(){
+    ball = {x:160, y:300, vx: 2.4*(Math.random()>.5?1:-1), vy:-3.2, r:7};
+    paddle = {x:120, w:70, h:12};
+  }
+  function loop(){
+    if(!playing) return;
+    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--surface2').trim() || '#1d2233';
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    bricks.forEach(b=>{
+      if(!b.alive) return;
+      ctx.fillStyle = b.color;
+      ctx.fillRect(b.x, b.y, b.w, b.h);
+    });
+    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#f2a541';
+    ctx.fillRect(paddle.x, canvas.height-24, paddle.w, paddle.h);
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI*2); ctx.fill();
+    ball.x += ball.vx; ball.y += ball.vy;
+    if(ball.x - ball.r < 0 || ball.x + ball.r > canvas.width) ball.vx *= -1;
+    if(ball.y - ball.r < 0) ball.vy *= -1;
+    if(ball.y + ball.r > canvas.height-24 && ball.y - ball.r < canvas.height-12 &&
+       ball.x > paddle.x && ball.x < paddle.x + paddle.w){
+      ball.vy = -Math.abs(ball.vy);
+      const hit = (ball.x - (paddle.x + paddle.w/2)) / (paddle.w/2);
+      ball.vx = hit * 3.5;
+    }
+    for(const b of bricks){
+      if(!b.alive) continue;
+      if(ball.x + ball.r > b.x && ball.x - ball.r < b.x+b.w && ball.y + ball.r > b.y && ball.y - ball.r < b.y+b.h){
+        b.alive = false; ball.vy *= -1; score += 10;
+        document.getElementById('boScore').textContent = score;
+        addXP(1);
+        break;
+      }
+    }
+    if(ball.y - ball.r > canvas.height){
+      lives--; document.getElementById('boLives').textContent = lives;
+      if(lives<=0){ endGame(); return; }
+      resetBall();
+    }
+    if(bricks.every(b=>!b.alive)){
+      score += 50; document.getElementById('boScore').textContent = score;
+      initBricks();
+      ball.vx *= 1.08; ball.vy *= 1.08;
+      resetBall();
+      toast('🎉 Level clear! +50');
+    }
+    raf = requestAnimationFrame(loop);
+  }
+  function endGame(){
+    playing=false; cancelAnimationFrame(raf);
+    saveHighscore('g-breakout', score);
+    if(score>0) recordGameWin();
+    addXP(Math.min(25, Math.floor(score/10)), 'Breakout selesai');
+    toast('💀 Game Over! Skor: '+score);
+    document.getElementById('boStart').style.display='block';
+  }
+  function movePaddle(clientX){
+    const rect = canvas.getBoundingClientRect();
+    const x = (clientX - rect.left) * (canvas.width / rect.width);
+    paddle.x = Math.max(0, Math.min(canvas.width - paddle.w, x - paddle.w/2));
+  }
+  canvas.addEventListener('mousemove', e=> playing && movePaddle(e.clientX));
+  canvas.addEventListener('touchmove', e=>{ if(!playing) return; e.preventDefault(); movePaddle(e.touches[0].clientX); }, {passive:false});
+  document.getElementById('boStart').onclick = ()=>{
+    score=0; lives=3; playing=true;
+    document.getElementById('boScore').textContent=0;
+    document.getElementById('boLives').textContent=3;
+    document.getElementById('boStart').style.display='none';
+    initBricks(); resetBall();
+    cancelAnimationFrame(raf);
+    raf = requestAnimationFrame(loop);
+  };
+};
+
+/* -- Terbang Seru (flappy-style) -- */
+TOOL_RENDERERS['g-terbang'] = (el)=>{
+  const best0 = DB.get('gameScores',{})['g-terbang']||0;
+  el.innerHTML = `
+    <div class="tsb-wrap" id="tsbWrap">
+      <canvas id="tsbCanvas"></canvas>
+      <div class="tsb-hud"><div class="tsb-score" id="tsbScore">0</div><div class="tsb-best" id="tsbBest">🏆 ${best0}</div></div>
+      <div class="tsb-hint" id="tsbHint">Ketuk untuk terbang</div>
+      <div class="tsb-overlay" id="tsbOverlay">
+        <div class="em">🐤</div>
+        <h3 id="tsbTitle">Terbang Seru</h3>
+        <p>Ketuk untuk terbang melewati celah pipa sebanyak mungkin. Jangan sampai menabrak!</p>
+        <div class="stat-row"><div class="s"><b id="tsbLast">0</b><span>Terakhir</span></div><div class="s"><b id="tsbBestStat">${best0}</b><span>Rekor</span></div></div>
+        <button class="tsb-play" id="tsbPlay">▶ Main</button>
+      </div>
+    </div>
+  `;
+  const wrapEl = document.getElementById('tsbWrap');
+  const canvas = document.getElementById('tsbCanvas');
+  const ctx = canvas.getContext('2d');
+  const overlay = document.getElementById('tsbOverlay');
+  const scoreEl = document.getElementById('tsbScore');
+  const bestEl = document.getElementById('tsbBest');
+  const lastEl = document.getElementById('tsbLast');
+  const bestStatEl = document.getElementById('tsbBestStat');
+  const hintEl = document.getElementById('tsbHint');
+  const playBtn = document.getElementById('tsbPlay');
+
+  let W, H, DPR;
+  function resize(){
+    const rect = wrapEl.getBoundingClientRect();
+    DPR = Math.min(window.devicePixelRatio||1, 2);
+    W = rect.width || 300; H = rect.height || 420;
+    canvas.width = W*DPR; canvas.height = H*DPR;
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+  }
+  resize();
+  const onResize = ()=>resize();
+  window.addEventListener('resize', onResize);
+
+  const GRAV=1500, FLAP_V=-420, PIPE_GAP_BASE=190, PIPE_W=60, BIRD_R=14;
+  let bird, pipes, score, speed, playing, over, spawnTimer, clouds, groundOffset, animT, raf, last;
+
+  function reset(){
+    bird = {x:W*0.3, y:H*0.4, vy:0, rot:0};
+    pipes = []; score=0; speed=165; playing=false; over=false; spawnTimer=0; animT=0;
+    scoreEl.textContent='0';
+    clouds = Array.from({length:5},()=>({x:Math.random()*W, y:20+Math.random()*H*0.4, s:.5+Math.random()*.8}));
+    groundOffset=0;
+  }
+  function flap(){
+    if(over) return;
+    if(!playing){ playing=true; overlay.classList.add('hide'); hintEl.style.opacity='1'; }
+    bird.vy = FLAP_V;
+  }
+  function spawnPipe(){
+    const gap = Math.max(125, PIPE_GAP_BASE - Math.min(50, score*1.5));
+    const margin = 55;
+    const top = margin + Math.random()*(H - margin*2 - gap - 80);
+    pipes.push({x:W+PIPE_W, top, gap, passed:false});
+  }
+  function endGame(){
+    over=true; playing=false;
+    lastEl.textContent = score;
+    const isBest = saveHighscore('g-terbang', score, true);
+    if(score>0) recordGameWin();
+    addXP(Math.min(20,score*2),'Terbang Seru selesai');
+    const best = DB.get('gameScores',{})['g-terbang']||0;
+    bestEl.textContent = '🏆 '+best; bestStatEl.textContent = best;
+    document.getElementById('tsbTitle').textContent = isBest && score>0 ? 'Rekor Baru!' : 'Coba Lagi!';
+    overlay.querySelector('.em').textContent = isBest && score>0 ? '🏆' : '💥';
+    playBtn.textContent = '🔄 Main Lagi';
+    overlay.classList.remove('hide');
+    if(isBest && score>0) toast('🏆 Rekor baru: '+score);
+  }
+  function update(dt){
+    animT += dt;
+    clouds.forEach(cl=>{ cl.x -= dt*10*cl.s; if(cl.x<-40) cl.x = W+40; });
+    if(!playing) return;
+    bird.vy += GRAV*dt; bird.y += bird.vy*dt;
+    bird.rot = Math.max(-0.5, Math.min(1.2, bird.vy/500));
+    groundOffset -= speed*dt;
+    speed = Math.min(320, 165+score*4);
+    spawnTimer -= dt;
+    if(spawnTimer<=0){ spawnPipe(); spawnTimer = Math.max(1.15, 1.7-score*0.02); }
+    pipes.forEach(p=> p.x -= speed*dt);
+    pipes = pipes.filter(p=> p.x > -PIPE_W-10);
+    pipes.forEach(p=>{
+      if(!p.passed && p.x+PIPE_W < bird.x-BIRD_R){ p.passed=true; score++; scoreEl.textContent=score; }
+      const withinX = bird.x+BIRD_R > p.x && bird.x-BIRD_R < p.x+PIPE_W;
+      if(withinX && (bird.y-BIRD_R < p.top || bird.y+BIRD_R > p.top+p.gap)) endGame();
+    });
+    const groundY = H-40;
+    if(bird.y+BIRD_R > groundY || bird.y-BIRD_R < 0) endGame();
+  }
+  function drawBg(){
+    const g = ctx.createLinearGradient(0,0,0,H);
+    g.addColorStop(0,'#6ec6ff'); g.addColorStop(.65,'#bfe8ff'); g.addColorStop(1,'#e9fbe5');
+    ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='rgba(255,255,255,.85)';
+    clouds.forEach(cl=>{
+      ctx.beginPath();
+      ctx.ellipse(cl.x,cl.y,26*cl.s,14*cl.s,0,0,Math.PI*2);
+      ctx.ellipse(cl.x+18*cl.s,cl.y+4*cl.s,18*cl.s,11*cl.s,0,0,Math.PI*2);
+      ctx.ellipse(cl.x-16*cl.s,cl.y+5*cl.s,16*cl.s,10*cl.s,0,0,Math.PI*2);
+      ctx.fill();
+    });
+  }
+  function drawPipe(p){
+    const bg = ctx.createLinearGradient(p.x,0,p.x+PIPE_W,0);
+    bg.addColorStop(0,'#3fae4a'); bg.addColorStop(.5,'#5fd66c'); bg.addColorStop(1,'#3fae4a');
+    ctx.fillStyle=bg;
+    ctx.fillRect(p.x,0,PIPE_W,p.top);
+    ctx.fillRect(p.x,p.top+p.gap,PIPE_W,H-(p.top+p.gap));
+    ctx.fillStyle='#2f8f3a';
+    ctx.fillRect(p.x-4,p.top-20,PIPE_W+8,20);
+    ctx.fillRect(p.x-4,p.top+p.gap,PIPE_W+8,20);
+  }
+  function drawGround(){
+    const groundY = H-40;
+    ctx.fillStyle='#deb887'; ctx.fillRect(0,groundY,W,H-groundY);
+    ctx.fillStyle='#8bc24a'; ctx.fillRect(0,groundY,W,7);
+    ctx.fillStyle='rgba(0,0,0,.08)';
+    const tile=28; let off=((groundOffset%tile)+tile)%tile;
+    for(let x=-off;x<W;x+=tile) ctx.fillRect(x,groundY+7,tile*0.5,H-groundY-7);
+  }
+  function drawBird(){
+    ctx.save(); ctx.translate(bird.x,bird.y); ctx.rotate(bird.rot);
+    const wingY = Math.sin(animT*16)*4;
+    ctx.fillStyle='#ffd166'; ctx.beginPath(); ctx.ellipse(0,0,BIRD_R,BIRD_R*0.86,0,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#f4a53c'; ctx.beginPath(); ctx.ellipse(-2,4+wingY,8,5.5,-0.3,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(6,-4,4,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#1c1d22'; ctx.beginPath(); ctx.arc(7.5,-4,1.9,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#ff8c42'; ctx.beginPath(); ctx.moveTo(11,-1); ctx.lineTo(19,2); ctx.lineTo(11,5); ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+  function loop(now){
+    if(!currentPage.includes('g-terbang')){ cancelAnimationFrame(raf); window.removeEventListener('resize', onResize); return; }
+    const dt = Math.min(0.033,(now-last)/1000); last=now;
+    update(dt); drawBg(); pipes.forEach(drawPipe); drawGround(); drawBird();
+    raf = requestAnimationFrame(loop);
+  }
+  canvas.addEventListener('pointerdown', e=>{ e.preventDefault(); flap(); });
+  if(window._tsbKeyBound) document.removeEventListener('keydown', window._tsbKeyBound);
+  window._tsbKeyBound = (e)=>{ if(!currentPage.includes('g-terbang')) return; if(e.code==='Space'){ e.preventDefault(); flap(); } };
+  document.addEventListener('keydown', window._tsbKeyBound);
+  playBtn.addEventListener('click', e=>{ e.stopPropagation(); reset(); overlay.classList.add('hide'); hintEl.style.opacity='1'; });
+
+  reset();
+  last = performance.now();
+  raf = requestAnimationFrame(loop);
 };
 
 /* ============================================================
