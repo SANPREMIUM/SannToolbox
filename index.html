@@ -46,7 +46,8 @@ button{font-family:inherit;}
   padding:14px 16px calc(10px + env(safe-area-inset-top)/2); padding-top:calc(14px + env(safe-area-inset-top));
   background:linear-gradient(180deg,var(--bg) 70%,transparent); backdrop-filter:blur(6px);
 }
-#topbar .icon-btn{width:38px;height:38px;border-radius:12px;background:var(--surface2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;color:var(--text);cursor:pointer;}
+#topbar .icon-btn{position:relative;width:38px;height:38px;border-radius:12px;background:var(--surface2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;color:var(--text);cursor:pointer;}
+#topbar .badge-dot{position:absolute;top:-4px;right:-4px;min-width:16px;height:16px;padding:0 4px;border-radius:9px;background:var(--bad);color:#fff;font-size:10px;font-weight:800;line-height:16px;text-align:center;box-shadow:0 0 0 2px var(--bg);font-family:var(--font-body);}
 #topbar .brand{font-family:var(--font-display);font-weight:800;font-size:17px;flex:1;letter-spacing:.2px;display:flex;align-items:center;gap:6px;cursor:pointer;}
 #topbar .brand small{font-size:10px;font-weight:600;color:var(--accent);background:rgba(242,165,65,.12);padding:2px 6px;border-radius:6px;}
 
@@ -389,6 +390,7 @@ input[type=color]{width:100%;height:44px;border-radius:12px;border:1px solid var
   <div id="topbar">
     <div class="icon-btn" onclick="openMenu()">☰</div>
     <div class="brand" onclick="nav('home')">🧰 SANN <small id="lvlBadge">Lv1</small></div>
+    <div class="icon-btn" onclick="nav('inbox')" id="chatIconBtn">💬<span class="badge-dot" id="chatBadge" style="display:none;">0</span></div>
     <div class="icon-btn" onclick="nav('search')">🔍</div>
     <div class="icon-btn" onclick="toggleTheme()" id="themeBtn">🌙</div>
   </div>
@@ -649,7 +651,29 @@ async function fsCountUsers(){
   try{
     const snap = await db.collection('users').get();
     return snap.size;
-  }catch(e){ return 0; }
+  }catch(e){
+    console.error('Gagal hitung users (kemungkinan Firestore rules memblokir list sebelum login):', e);
+    return 0;
+  }
+}
+/* Counter publik jumlah pengguna, dibaca di layar login SEBELUM user login.
+   Tidak mengandalkan list() koleksi 'users' (yang biasanya diblokir rules
+   untuk visitor yang belum auth) — cukup baca 1 dokumen counter. */
+async function fsGetPublicUserCount(){
+  try{
+    const snap = await db.collection('stats').doc('public').get();
+    return snap.exists ? (snap.data().userCount || 0) : 0;
+  }catch(e){
+    console.error('Gagal baca counter publik jumlah pengguna:', e);
+    return 0;
+  }
+}
+async function fsIncrementPublicUserCount(){
+  try{
+    await db.collection('stats').doc('public').set({
+      userCount: firebase.firestore.FieldValue.increment(1)
+    }, {merge:true});
+  }catch(e){ console.error('Gagal update counter publik jumlah pengguna:', e); }
 }
 async function fsIncrementGamePlay(username, gameId){
   if(!username) return;
@@ -693,13 +717,14 @@ function stopPresence(){
   document.removeEventListener('visibilitychange', onVisibilityChangePresence);
   window.removeEventListener('focus', fsHeartbeat);
 }
-function chatIdFor(a,b){ return [a,b].sort().join('__'); }
+function chatIdFor(a,b){ return [a,b].map(x=>x.toLowerCase()).sort().join('__'); }
 async function fsSendMessage(otherUser, text){
   const me = currentUsername();
   if(!me || !otherUser || me===otherUser || !text.trim()) return;
   const chatId = chatIdFor(me, otherUser);
   await db.collection('chats').doc(chatId).set({
     participants: [me, otherUser].sort(),
+    participantsLower: [me, otherUser].map(u=>u.toLowerCase()).sort(),
     lastText: text.slice(0,120),
     lastFrom: me,
     lastTs: firebase.firestore.FieldValue.serverTimestamp()
@@ -709,6 +734,76 @@ async function fsSendMessage(otherUser, text){
     text: text.slice(0,1000),
     ts: firebase.firestore.FieldValue.serverTimestamp()
   });
+}
+/* Tandai sebuah percakapan sudah dibaca oleh user yang sedang login.
+   Disimpan sebagai map lastRead.<username> = timestamp di dokumen chat.
+   Pakai update() dengan dot-path (bukan set+merge) karena itu satu-satunya
+   cara yang benar-benar dijamin Firestore untuk menulis 1 key di dalam map
+   bersarang tanpa menghapus key user lain di map yang sama. Kalau dokumennya
+   belum ada (chat baru), update() akan gagal — baru di situ fallback ke
+   set() dengan data lengkap (participants ikut disertakan) untuk membuat
+   dokumennya dari awal. */
+async function markChatRead(chatId, otherUser){
+  const me = currentUsername();
+  if(!me || !chatId) return;
+  const ref = db.collection('chats').doc(chatId);
+  try{
+    await ref.update({
+      ['lastRead.'+me]: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  }catch(e){
+    try{
+      const payload = { lastRead: { [me]: firebase.firestore.FieldValue.serverTimestamp() } };
+      if(otherUser){
+        payload.participants = [me, otherUser].sort();
+        payload.participantsLower = [me, otherUser].map(u=>u.toLowerCase()).sort();
+      }
+      await ref.set(payload, {merge:true});
+    }catch(e2){ console.error('Gagal menandai chat dibaca:', e2); }
+  }
+}
+
+/* ---------- badge notif chat di topbar ---------- */
+let _chatBadgeUnsub = null;
+function stopChatBadgeListener(){ if(_chatBadgeUnsub){ _chatBadgeUnsub(); _chatBadgeUnsub=null; } }
+function startChatBadgeListener(){
+  stopChatBadgeListener();
+  const me = currentUsername();
+  if(!me) return;
+  _chatBadgeUnsub = db.collection('chats').where('participantsLower','array-contains', me.toLowerCase())
+    .onSnapshot(snap=>{
+      let unreadChats = 0;
+      snap.docs.forEach(d=>{
+        const c = d.data();
+        if(!c.lastFrom || c.lastFrom.toLowerCase()===me.toLowerCase()) return; // pesan terakhir dari diri sendiri
+        const myRead = c.lastRead && c.lastRead[me];
+        const readMs = (myRead && typeof myRead.toMillis==='function') ? myRead.toMillis() : 0;
+        const lastMs = (c.lastTs && typeof c.lastTs.toMillis==='function') ? c.lastTs.toMillis() : 1;
+        if(lastMs > readMs) unreadChats++;
+      });
+      updateChatBadge(unreadChats);
+    }, err=>{ console.error('Gagal memuat notif chat:', err); });
+}
+function updateChatBadge(n){
+  const el = document.getElementById('chatBadge');
+  if(!el) return;
+  if(n>0){ el.textContent = n>9?'9+':String(n); el.style.display='block'; }
+  else { el.style.display='none'; }
+}
+
+/* ---------- status "sedang main" (nowPlaying) ---------- */
+let _lastNowPlaying = undefined;
+async function fsSetNowPlaying(name){
+  const me = currentUsername();
+  if(!me) return;
+  if(_lastNowPlaying === (name||null)) return; // hindari tulis berulang
+  _lastNowPlaying = name || null;
+  try{
+    await db.collection('users').doc(me).update({
+      nowPlaying: name ? name : firebase.firestore.FieldValue.delete(),
+      nowPlayingTs: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  }catch(e){ console.error('Gagal update status main:', e); }
 }
 
 let gateView = 'welcome';
@@ -723,8 +818,11 @@ function initAuthGate(){
     if(user && savedUser){
       overlay.style.display = 'none';
       startPresence();
+      startChatBadgeListener();
     } else {
       stopPresence();
+      stopChatBadgeListener();
+      updateChatBadge(0);
       sessionStorage.removeItem('sann_session_user');
       sessionStorage.removeItem('sann_session_admin');
       gateView = 'welcome';
@@ -742,7 +840,7 @@ async function drawGate(msg){
     box.innerHTML = `
       <div class="gate-title">SELAMAT DATANG<br>DI SANN TOOLS</div>
       <div class="gate-stats">
-        <div class="gs-item"><b id="gateUserCount">...</b><span>Pengguna Terdaftar</span></div>
+        <div class="gs-item"><b id="gateUserCount">...</b><span>Jumlah Pengguna</span></div>
         <div class="gs-item"><b>${totalTools}</b><span>Tools Tersedia</span></div>
       </div>
       <div class="gate-btn-row">
@@ -751,7 +849,7 @@ async function drawGate(msg){
       </div>
       <div class="gate-note">Jika tidak punya akun, silahkan daftar dulu.<br>Akun tersimpan di cloud (multi-perangkat).</div>
     `;
-    fsCountUsers().then(n=>{
+    fsGetPublicUserCount().then(n=>{
       const el = document.getElementById('gateUserCount');
       if(el) el.textContent = n;
     });
@@ -861,6 +959,7 @@ async function doRegister(){
     await auth.createUserWithEmailAndPassword(usernameToPseudoEmail(u), pw);
     const existingXP = getProfile().xp || 0;
     await fsCreateUser(u, existingXP);
+    fsIncrementPublicUserCount(); // nambahin counter publik, tidak perlu ditunggu
     sessionStorage.setItem('sann_session_user', u);
     toast('Akun berhasil dibuat! Selamat datang, '+u+' 🎉');
     enterApp();
@@ -881,11 +980,15 @@ async function doRegister(){
 function enterApp(){
   document.getElementById('gateOverlay').style.display = 'none';
   startPresence();
+  startChatBadgeListener();
   render();
 }
 
 function logout(){
   stopPresence();
+  stopChatBadgeListener();
+  updateChatBadge(0);
+  _lastNowPlaying = undefined;
   sessionStorage.removeItem('sann_session_user');
   sessionStorage.removeItem('sann_session_admin');
   auth.signOut().finally(()=>location.reload());
@@ -909,8 +1012,8 @@ function renderHubungiAdmin(){
     <div class="card" style="text-align:center;">
       <div style="font-size:40px;">🛠️</div>
       <div style="font-size:18px;font-weight:800;margin-top:6px;">Admin : Sandrian</div>
-      <div style="font-size:13px;color:var(--muted);margin-top:2px;">WhatsApp : wa.me/6281398803306</div>
-      <a href="https://wa.me/6281398803306" target="_blank" rel="noopener" class="btn" style="margin-top:14px;display:inline-block;text-decoration:none;">💬 Chat via WhatsApp</a>
+      <div style="font-size:13px;color:var(--muted);margin-top:2px;">WhatsApp : wa.me/628139883306</div>
+      <a href="https://wa.me/628139883306" target="_blank" rel="noopener" class="btn" style="margin-top:14px;display:inline-block;text-decoration:none;">💬 Chat via WhatsApp</a>
     </div>
   `;
 }
@@ -937,7 +1040,7 @@ function loadLeaderboard(){
             const online = isUserOnline(r);
             return `<div class="li-row clickable" onclick="nav('user-${encodeURIComponent(r.u)}')">
               <span class="status-dot ${online?'online':''}" title="${online?'Online':'Offline'}"></span>
-              <div class="li-tx">${i===0 && (r.score||0)>0?'🏆 ':''}${escapeHtml(r.u)}${online?' <span class="status-text online">· main</span>':''}</div>
+              <div class="li-tx">${i===0 && (r.score||0)>0?'🏆 ':''}${escapeHtml(r.u)}${online?(' <span class="status-text online">· '+(r.nowPlaying?('main '+escapeHtml(r.nowPlaying)):'online')+'</span>'):''}</div>
               <b style="color:var(--accent)">${r.score||0}</b><span style="color:var(--muted);">›</span></div>`;
           }).join('') : `<div class="empty-state"><span class="em">🏆</span>Belum ada user terdaftar.</div>`}
         </div>
@@ -999,11 +1102,14 @@ function renderUserProfileBody(username, rec){
     if(!online && rec.lastActive && typeof rec.lastActive.toDate === 'function'){
       lastSeenTxt = 'Terakhir aktif ' + rec.lastActive.toDate().toLocaleString('id-ID',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'short'});
     }
+    const statusTxt = online
+      ? (rec.nowPlaying ? ('🟢 Online · sedang main ' + escapeHtml(rec.nowPlaying)) : '🟢 Online')
+      : (lastSeenTxt || 'Offline');
     body.innerHTML = `
       <div class="card" style="text-align:center;">
         <div class="profile-avatar">${escapeHtml(initial)}<span class="status-dot ${online?'online':''}"></span></div>
         <div style="font-size:18px;font-weight:800;">${escapeHtml(username)}</div>
-        <div class="status-text ${online?'online':''}" style="justify-content:center;margin-top:4px;">${online? '🟢 Online · sedang main' : (lastSeenTxt||'Offline')}</div>
+        <div class="status-text ${online?'online':''}" style="justify-content:center;margin-top:4px;">${statusTxt}</div>
         <div style="font-size:11px;color:var(--muted);margin-top:2px;">${isMe? 'Ini kamu' : 'Pengguna SANN Toolbox'}</div>
       </div>
       <div class="stat-row">
@@ -1046,6 +1152,33 @@ function renderChatWrap(username){
     </div>
   `;
 }
+let _chatDocUnsub = null;
+let _chatMsgsCache = [];
+let _chatDocCache = null;
+let _chatMeUser = null;
+let _chatOtherUser = null;
+function renderChatMsgsToDom(){
+  const el = document.getElementById('chatMsgs');
+  if(!el) return;
+  const msgs = _chatMsgsCache;
+  if(!msgs.length){
+    el.innerHTML = `<div class="empty-state"><span class="em">💬</span>Belum ada pesan. Mulai percakapan!</div>`;
+    return;
+  }
+  const me = _chatMeUser;
+  const otherRead = _chatDocCache && _chatDocCache.lastRead && _chatDocCache.lastRead[_chatOtherUser];
+  const otherReadMs = (otherRead && typeof otherRead.toMillis==='function') ? otherRead.toMillis() : 0;
+  let lastMineIdx = -1;
+  msgs.forEach((m,i)=>{ if(m.from===me) lastMineIdx = i; });
+  el.innerHTML = msgs.map((m,i)=>{
+    const mine = m.from===me;
+    const time = (m.ts && typeof m.ts.toDate==='function') ? m.ts.toDate().toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'}) : '';
+    const msgMs = (m.ts && typeof m.ts.toMillis==='function') ? m.ts.toMillis() : 0;
+    const showSeen = mine && i===lastMineIdx && otherReadMs>0 && msgMs>0 && otherReadMs>=msgMs;
+    return `<div class="chat-bubble ${mine?'me':'them'}">${escapeHtml(m.text)}<div class="t">${time}${showSeen?' · Dilihat':''}</div></div>`;
+  }).join('');
+  el.scrollTop = el.scrollHeight;
+}
 function loadChatThread(otherUser){
   stopChatListener();
   const me = currentUsername();
@@ -1055,22 +1188,26 @@ function loadChatThread(otherUser){
   const sendBtn = document.getElementById('chatSendBtn');
   if(!msgsEl || !inputEl || !sendBtn) return;
   const chatId = chatIdFor(me, otherUser);
+  _chatMsgsCache = [];
+  _chatDocCache = null;
+  _chatMeUser = me;
+  _chatOtherUser = otherUser;
   _chatUnsub = db.collection('chats').doc(chatId).collection('messages').orderBy('ts','asc').limit(200)
     .onSnapshot(snap=>{
-      const el = document.getElementById('chatMsgs');
-      if(!el) return;
-      const msgs = snap.docs.map(d=>d.data());
-      el.innerHTML = msgs.length ? msgs.map(m=>{
-        const mine = m.from===me;
-        const time = (m.ts && typeof m.ts.toDate==='function') ? m.ts.toDate().toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'}) : '';
-        return `<div class="chat-bubble ${mine?'me':'them'}">${escapeHtml(m.text)}<div class="t">${time}</div></div>`;
-      }).join('') : `<div class="empty-state"><span class="em">💬</span>Belum ada pesan. Mulai percakapan!</div>`;
-      el.scrollTop = el.scrollHeight;
+      _chatMsgsCache = snap.docs.map(d=>d.data());
+      renderChatMsgsToDom();
+      markChatRead(chatId, otherUser); // pesan masuk yang sedang dilihat langsung ditandai dibaca
     }, err=>{
       console.error(err);
       const el = document.getElementById('chatMsgs');
       if(el) el.innerHTML = `<div class="empty-state"><span class="em">⚠️</span>Gagal memuat pesan.<br><small>Cek koneksi internet / rules Firestore.</small></div>`;
     });
+  _chatDocUnsub = db.collection('chats').doc(chatId)
+    .onSnapshot(snap=>{
+      _chatDocCache = snap.exists ? snap.data() : null;
+      renderChatMsgsToDom();
+    }, err=>{ console.error(err); });
+  markChatRead(chatId, otherUser);
   async function send(){
     const text = inputEl.value.trim();
     if(!text) return;
@@ -1111,7 +1248,7 @@ async function loadInbox(){
     return;
   }
   try{
-    const snap = await db.collection('chats').where('participants','array-contains', me).get();
+    const snap = await db.collection('chats').where('participantsLower','array-contains', me.toLowerCase()).get();
     let rows = snap.docs.map(d=>d.data());
     rows.sort((a,b)=>{
       const ta = (a.lastTs && typeof a.lastTs.toMillis==='function') ? a.lastTs.toMillis() : 0;
@@ -1119,7 +1256,7 @@ async function loadInbox(){
       return tb-ta;
     });
     body.innerHTML = rows.length ? `<div class="tool-list">${rows.map(r=>{
-      const other = (r.participants||[]).find(u=>u!==me) || '?';
+      const other = (r.participants||[]).find(u=>u.toLowerCase()!==me.toLowerCase()) || '?';
       const preview = r.lastFrom===me ? 'Kamu: '+ (r.lastText||'') : (r.lastText||'');
       return `<div class="li-row clickable" onclick="nav('chat-${encodeURIComponent(other)}')"><span style="font-size:19px;width:26px;text-align:center;flex-shrink:0;">💬</span><div class="li-tx"><b>${escapeHtml(other)}</b><div style="font-size:11px;color:var(--muted);margin-top:1px;">${escapeHtml(preview)}</div></div><span style="color:var(--muted);">›</span></div>`;
     }).join('')}</div>` : `<div class="empty-state"><span class="em">💬</span>Belum ada percakapan.<br><small>Chat dari halaman profil pengguna lain di Papan Skor.</small></div>`;
@@ -1140,9 +1277,28 @@ function renderAdminPanel(){
       <div class="s"><b id="apToday">...</b><span>Daftar Hari Ini</span></div>
       <div class="s"><b>${allTools().length}</b><span>Total Tools</span></div>
     </div>
+    <div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+      <div><b>🔄 Sinkron Jumlah Pengguna</b><div style="font-size:11px;color:var(--muted);">Update angka "Jumlah Pengguna" di layar login supaya sesuai total user asli sekarang.</div></div>
+      <button class="btn sm" id="apSyncBtn" onclick="syncPublicUserCount()" style="flex-shrink:0;">Sinkron</button>
+    </div>
     <div class="section-label">Semua Pengguna Terdaftar</div>
     <div id="apList"><div class="result-box"><div class="lbl">Memuat data...</div></div></div>
   `;
+}
+
+async function syncPublicUserCount(){
+  const btn = document.getElementById('apSyncBtn');
+  if(btn){ btn.disabled = true; btn.textContent = '...'; }
+  try{
+    const total = await fsCountUsers();
+    await db.collection('stats').doc('public').set({ userCount: total });
+    toast('Berhasil! Jumlah Pengguna disinkronkan: '+total);
+  }catch(e){
+    console.error(e);
+    toast('Gagal sinkron, cek koneksi / rules Firestore');
+  }finally{
+    if(btn){ btn.disabled = false; btn.textContent = 'Sinkron'; }
+  }
 }
 
 async function loadAdminPanel(){
@@ -1159,7 +1315,8 @@ async function loadAdminPanel(){
     listEl.innerHTML = rows.length
       ? `<div class="tool-list">${rows.map(d=>{
           const online = isUserOnline(d);
-          return `<div class="li-row"><span class="status-dot ${online?'online':''}"></span><div class="li-tx">${d.u}${online?' <span class="status-text online">· online</span>':''}<br><span style="color:var(--muted);font-size:10.5px;">daftar ${d.createdAt||'-'}</span></div><b style="color:var(--accent)">${d.score||0}</b></div>`;
+          const statusSpan = online ? (' <span class="status-text online">· '+(d.nowPlaying?('main '+escapeHtml(d.nowPlaying)):'online')+'</span>') : '';
+          return `<div class="li-row clickable" onclick="nav('user-${encodeURIComponent(d.u)}')"><span class="status-dot ${online?'online':''}"></span><div class="li-tx">${escapeHtml(d.u)}${statusSpan}<br><span style="color:var(--muted);font-size:10.5px;">daftar ${d.createdAt||'-'}</span></div><b style="color:var(--accent)">${d.score||0}</b></div>`;
         }).join('')}</div>`
       : `<div class="empty-state">Belum ada user.</div>`;
   }catch(e){
@@ -1276,7 +1433,6 @@ const CATS = [
    {id:'random-horror', em:'🎲', nm:'Random Horror Story', desc:'Cerita horor acak dari semua kategori'},
    {id:'mystery-puzzle', em:'🧩', nm:'Mystery Puzzle', desc:'Teka-teki misteri yang menguji logikamu'},
    {id:'detective-case', em:'🔎', nm:'Detective Case', desc:'Pecahkan kasus detektif singkat'},
-   {id:'interactive-mystery', em:'📖', nm:'Interactive Mystery', desc:'Cerita misteri dengan pilihanmu sendiri'},
  ]},
  {id:'eksperimen', em:'🧪', nm:'Experimental', desc:'Alat unik & fun', tools:[
    {id:'color-picker', em:'🎨', nm:'Color Picker', desc:'Pilih warna, lihat kode HEX/RGB/HSL'},
@@ -1311,7 +1467,10 @@ function findCat(id){ return CATS.find(c=>c.id===id); }
    ============================================================ */
 let currentPage = 'home';
 let _chatUnsub = null;
-function stopChatListener(){ if(_chatUnsub){ _chatUnsub(); _chatUnsub=null; } }
+function stopChatListener(){
+  if(_chatUnsub){ _chatUnsub(); _chatUnsub=null; }
+  if(_chatDocUnsub){ _chatDocUnsub(); _chatDocUnsub=null; }
+}
 function nav(page){
   currentPage = page;
   location.hash = page;
@@ -1448,10 +1607,10 @@ function renderProfil(){
       <div style="font-size:16px;font-weight:800;margin-top:2px;">${isAdminSession()? '🛠️ Admin (Sandrian)' : (currentUsername()||'-')}</div>
       <button class="btn secondary sm" style="margin-top:10px;" onclick="logout()">Keluar / Logout</button>
     </div>
-    ${!isAdminSession() ? `<div class="card" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;" onclick="nav('inbox')">
-      <div><b>💬 Pesan</b><div style="font-size:11px;color:var(--muted);">Chat dengan pengguna lain</div></div>
+    <div class="card" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;" onclick="nav('inbox')">
+      <div><b>💬 Pesan</b><div style="font-size:11px;color:var(--muted);">${isAdminSession()?'Chat dengan pengguna':'Chat dengan pengguna lain'}</div></div>
       <div style="font-size:18px;color:var(--muted);">›</div>
-    </div>` : ''}
+    </div>
     <div class="card" style="text-align:center;">
       <div style="font-size:40px;">🏆</div>
       <div style="font-size:20px;font-weight:800;margin-top:4px;">Level ${lv.level}</div>
@@ -1537,10 +1696,14 @@ function afterRender(){
   if(!currentPage.startsWith('user-')) stopUserProfileListener();
   if(currentPage.startsWith('tool-')){
     const id = currentPage.replace('tool-','');
+    const t = findTool(id);
+    fsSetNowPlaying(t && t.cat==='game' ? t.nm : null);
     const fn = TOOL_RENDERERS[id];
     const body = document.getElementById('toolBody');
     if(fn && body) fn(body);
     else if(body) body.innerHTML = `<div class="empty-state"><span class="em">🚧</span>Tools ini belum tersedia</div>`;
+  } else {
+    fsSetNowPlaying(null);
   }
   if(currentPage === 'search'){
     const inp = document.getElementById('searchInput');
@@ -4896,26 +5059,49 @@ TOOL_RENDERERS['g-terbang'] = (el)=>{
    ============================================================ */
 const HORROR = {
   creepypasta:[
-    {t:'Suara di Lantai Atas', s:'Aku tinggal sendirian di apartemen lantai 3. Malam itu aku dengar langkah kaki dari lantai atas—padahal apartemenku paling atas. Suaranya makin jelas, seperti seseorang berjalan mondar-mandir tepat di atas plafon kamarku, lalu berhenti tepat di atas tempat tidurku.'},
-    {t:'Pesan Terakhir', s:'Ponselku menerima pesan dari nomor kakakku yang sudah meninggal 2 tahun lalu. Isinya cuma satu kata: "Jangan tidur." Aku mengabaikannya dan tertidur. Paginya, seluruh cerminku retak dengan pola yang sama—seperti membentuk wajah.'},
-    {t:'Boneka di Kamar Adik', s:'Adikku bilang bonekanya bisa bicara di malam hari. Aku kira dia cuma berimajinasi, sampai suatu malam aku dengar suara kecil dari kamarnya berkata, "Dia belum tidur, kan?" berulang-ulang.'},
+    {t:'Suara di Lantai Atas', s:'Aku tinggal sendirian di apartemen lantai 3, unit paling atas di gedung itu. Malam itu aku dengar langkah kaki dari lantai atas—padahal secara logika tidak mungkin ada lantai di atas apartemenku. Suaranya makin jelas, seperti seseorang berjalan mondar-mandir tepat di atas plafon kamarku, lalu berhenti tepat di atas tempat tidurku. Aku diam, memegang napas, menunggu suaranya hilang. Tapi yang terjadi malah sebaliknya: plafon di atas tempat tidurku mulai retak pelan, dan dari celah kecil itu menetes air berwarna kemerahan. Paginya aku bertanya ke satpam, dan dia cuma bilang: "Di atas unit Anda memang tidak ada apa-apa, Pak. Itu atap gedung."'},
+    {t:'Pesan Terakhir', s:'Ponselku menerima pesan dari nomor kakakku yang sudah meninggal 2 tahun lalu karena kecelakaan. Isinya cuma satu kata: "Jangan tidur." Aku pikir itu kesalahan operator atau nomor yang didaur ulang, jadi aku mengabaikannya dan tetap tertidur seperti biasa. Paginya, seluruh cermin di rumahku—kamar mandi, lemari, meja rias—retak dengan pola yang sama persis, seolah membentuk garis wajah seseorang yang tersenyum. Aku langsung menelepon nomor itu untuk memastikan, dan yang mengangkat adalah suara kakakku sendiri, berkata pelan: "Aku sudah bilang, jangan tidur," sebelum sambungan terputus selamanya.'},
+    {t:'Boneka di Kamar Adik', s:'Adikku yang berumur 6 tahun bilang bonekanya bisa bicara di malam hari. Aku kira dia cuma berimajinasi seperti anak kecil pada umumnya, sampai suatu malam aku sengaja menginap di kamarnya untuk membuktikannya. Sekitar jam 2 pagi, aku dengar suara kecil dan serak dari arah rak boneka, berkata pelan berulang-ulang: "Dia belum tidur, kan? Dia belum tidur, kan?" Aku menoleh dan mendapati semua boneka di rak itu menghadap ke arahku, padahal seingatku tadi menghadap ke dinding. Sejak malam itu, adikku tidak pernah lagi menyebut boneka-boneka itu bisa bicara—dan dia juga tidak pernah mau tidur sendirian lagi.'},
+    {t:'Panggilan Tak Terjawab', s:'Setiap malam jam 3 pagi tepat, ponselku menerima panggilan dari nomor tak dikenal. Aku selalu mengabaikannya karena takut itu penipuan. Suatu malam karena penasaran, aku akhirnya mengangkatnya. Yang terdengar bukan suara manusia, melainkan rekaman suara napasku sendiri—persis seperti suara napasku saat aku sedang tidur, direkam dari jarak sangat dekat, seolah seseorang duduk tepat di samping ranjangku sambil merekam. Panggilan itu terus berulang selama seminggu, dan setiap malam rekamannya semakin panjang—seolah orang yang merekam itu berada semakin lama di kamarku setiap malamnya.'},
+    {t:'Foto Keluarga', s:'Saat merapikan album foto lama, aku menemukan satu foto keluarga yang tidak kuingat pernah diambil: kami sekeluarga sedang makan malam, tersenyum ke kamera. Tapi di kursi kosong ujung meja, ada sosok berwajah buram berdiri membungkuk, seolah sedang membisikkan sesuatu ke telinga ibuku. Aku bertanya ke ibuku soal foto itu, dan wajahnya langsung pucat. "Foto itu diambil malam sebelum kakekmu meninggal," katanya. "Dan kami tidak pernah punya kamera di rumah waktu itu."'},
+    {t:'Tetangga Baru', s:'Keluarga baru pindah ke rumah kosong sebelah rumahku, tapi aku tidak pernah benar-benar melihat wajah mereka—selalu tertutup topi atau bayangan setiap kali berpapasan. Suatu malam, dari jendela kamarku, aku melihat mereka semua berdiri berjajar di halaman, menghadap rumahku, diam tanpa bergerak selama berjam-jam sampai aku tertidur karena kelelahan menunggu mereka pergi. Paginya aku tanya tetangga lain, dan mereka bilang rumah sebelah itu sudah kosong sejak lima tahun lalu, dan tidak ada seorang pun yang pernah membeli atau menyewanya.'},
   ],
   misteri:[
-    {t:'Kapal Mary Celeste', s:'Tahun 1872, kapal Mary Celeste ditemukan mengambang di lautan tanpa satupun awak di dalamnya. Perbekalan masih utuh, barang pribadi tertata rapi, sekoci hilang—namun tak ada tanda perjuangan. Hingga kini tak ada yang tahu ke mana perginya seluruh kru.'},
-    {t:'Sinyal WOW!', s:'Tahun 1977, sebuah teleskop radio menangkap sinyal kuat berdurasi 72 detik yang berasal dari luar angkasa, sangat mirip pola yang diprediksi untuk sinyal dari kecerdasan luar bumi. Sinyal itu tidak pernah terdeteksi lagi hingga sekarang.'},
+    {t:'Kapal Mary Celeste', s:'Tahun 1872, kapal dagang Mary Celeste ditemukan mengambang sendirian di lautan Atlantik tanpa satupun awak di dalamnya. Perbekalan makanan dan air masih utuh untuk berbulan-bulan, barang-barang pribadi kru tertata rapi di kabin masing-masing, bahkan sarapan pun masih tersaji di meja seolah ditinggalkan begitu saja di tengah aktivitas. Hanya satu sekoci yang hilang, namun tidak ada satu pun tanda perjuangan, pertumpahan darah, atau kerusakan besar di kapal. Hingga hari ini, tidak ada yang benar-benar tahu mengapa seluruh kru memutuskan meninggalkan kapal yang masih layak berlayar itu di tengah lautan lepas.'},
+    {t:'Sinyal WOW!', s:'Pada 15 Agustus 1977, sebuah teleskop radio Big Ear di Ohio menangkap sinyal sangat kuat berdurasi 72 detik yang berasal dari arah rasi bintang Sagitarius. Kekuatan dan pola sinyal itu sangat mirip dengan yang diperkirakan para ilmuwan untuk sinyal buatan dari kecerdasan luar bumi, sampai-sampai astronom yang menemukannya melingkari data itu di kertas cetak dan menulis "Wow!" di sampingnya. Sinyal itu tidak pernah muncul lagi meski diamati berulang kali di frekuensi dan arah yang sama, dan hingga sekarang asal-usulnya masih menjadi misteri astronomi yang belum terpecahkan.'},
+    {t:'Hilangnya Amelia Earhart', s:'Tahun 1937, penerbang wanita terkenal Amelia Earhart berusaha menjadi orang pertama yang mengelilingi dunia lewat jalur khatulistiwa. Dalam perjalanan menuju Pulau Howland di tengah Samudra Pasifik, komunikasi radionya terputus dan pesawatnya tidak pernah terlihat lagi. Pencarian besar-besaran dilakukan Angkatan Laut Amerika Serikat tanpa hasil apa pun—tidak ada puing, tidak ada jenazah, tidak ada jejak yang bisa dikonfirmasi. Berbagai teori bermunculan, dari kehabisan bahan bakar dan jatuh ke laut, hingga teori bahwa ia mendarat darurat di pulau terpencil dan bertahan hidup untuk sementara waktu—namun tak satu pun terbukti secara pasti.'},
+    {t:'Penerbangan 19 di Segitiga Bermuda', s:'Pada Desember 1945, lima pesawat pembom milik Angkatan Laut Amerika Serikat lepas landas untuk misi latihan rutin di atas kawasan yang kini dikenal sebagai Segitiga Bermuda. Di tengah penerbangan, pilot utama melaporkan kompas mereka error dan mereka kehilangan arah, dengan transmisi radio terakhir yang terdengar panik dan membingungkan. Seluruh lima pesawat beserta 14 awaknya menghilang tanpa jejak, dan pesawat penyelamat yang dikirim untuk mencari mereka juga ikut lenyap tanpa pernah ditemukan. Hingga kini tidak ada puing satu pun dari enam pesawat itu yang berhasil ditemukan di dasar laut.'},
+    {t:'Kasus D.B. Cooper', s:'Pada 24 November 1971, seorang pria yang menyebut dirinya Dan Cooper membajak pesawat penumpang di Amerika Serikat, mengklaim membawa bom, dan meminta uang tebusan sebesar 200 ribu dolar. Setelah uang diserahkan dan sandera dilepaskan, ia memerintahkan pilot terbang rendah lalu terjun payung dari pintu belakang pesawat di tengah malam yang gelap dan berhujan deras, dan tidak pernah terlihat lagi sejak itu. Meski FBI menyelidiki kasus ini selama puluhan tahun dan sebagian kecil uang tebusannya ditemukan di tepi sungai bertahun-tahun kemudian, identitas asli dan nasib D.B. Cooper tetap menjadi salah satu misteri kriminal yang belum terpecahkan hingga sekarang.'},
   ],
   'urban-legend':[
-    {t:'Kuntilanak di Pohon Beringin', s:'Konon, siapa pun yang lewat sendirian di bawah pohon beringin tua pada tengah malam akan mendengar tawa wanita dari atas dahan. Warga sekitar percaya itu adalah kuntilanak yang menunggu korban yang menoleh ke atas.'},
-    {t:'Angka 4 dan Rumah Sakit', s:'Di banyak rumah sakit, lantai atau kamar bernomor 4 sengaja dilewati karena angka itu dianggap membawa sial dan berkaitan dengan kematian—kepercayaan yang berasal dari pelafalan angka 4 yang mirip kata "mati" dalam beberapa bahasa Asia.'},
+    {t:'Kuntilanak di Pohon Beringin', s:'Konon, siapa pun yang lewat sendirian di bawah pohon beringin tua pada tengah malam akan mendengar tawa wanita pelan dari atas dahan, semakin lama semakin dekat. Warga sekitar percaya itu adalah kuntilanak yang menunggu korban yang menoleh ke atas—karena begitu seseorang menoleh, wajah pucat dengan mata kosong akan menatap balik dari sela-sela dahan. Banyak warga yang memilih memutar jalan lebih jauh daripada harus lewat di bawah pohon itu setelah tengah malam, walau sudah puluhan tahun berlalu sejak cerita ini pertama kali beredar.'},
+    {t:'Angka 4 dan Rumah Sakit', s:'Di banyak rumah sakit dan hotel di Asia, lantai atau kamar bernomor 4 sengaja dilewati dan langsung meloncat ke nomor 5, karena angka itu dianggap membawa sial dan berkaitan erat dengan kematian. Kepercayaan ini berasal dari pelafalan angka 4 yang terdengar sangat mirip dengan kata "mati" dalam beberapa bahasa Asia Timur. Banyak pasien dan keluarga yang secara khusus meminta pindah kamar jika kebetulan mendapat nomor kamar yang mengandung angka 4, terutama di ruang perawatan intensif.'},
+    {t:'Cermin Tengah Malam', s:'Legenda ini bilang, kalau kamu berdiri di depan cermin gelap tepat jam 12 malam sambil menyebut nama seseorang tiga kali berturut-turut, wajah orang itu akan muncul di pantulan cermin—entah orang itu masih hidup atau sudah meninggal. Beberapa versi cerita bahkan menyebutkan bahwa begitu wajah itu muncul, ia akan ikut keluar dari cermin jika kamu tidak segera menutup cermin atau menyalakan lampu dalam hitungan detik. Banyak anak-anak sengaja mencoba ritual ini sebagai tantangan keberanian, meski hampir semua yang mencoba mengaku berhenti sebelum hitungan ketiga karena terlalu takut.'},
+    {t:'Jembatan Merah', s:'Di sebuah kota kecil, ada jembatan tua yang catnya sudah pudar kemerahan karena karat, namun warga setempat percaya warna merah itu berasal dari kecelakaan tragis puluhan tahun lalu. Konon, jika kamu melintasi jembatan itu sendirian di malam hari dan mendengar suara tangisan dari bawah jembatan, kamu dilarang keras menoleh ke sumber suara—karena siapa pun yang menoleh akan melihat sosok yang menariknya untuk ikut jatuh ke bawah. Hingga sekarang, warga sekitar tetap memasang lampu terang di sepanjang jembatan itu, meski sebenarnya jarang ada yang lewat sendirian di malam hari.'},
+    {t:'Suster Ngesot', s:'Cerita ini populer di kalangan pasien dan perawat rumah sakit tua, tentang sosok suster berseragam putih yang bergerak dengan cara merayap di lantai koridor rumah sakit pada malam hari, alih-alih berjalan seperti biasa. Konon ia dulunya seorang perawat yang meninggal secara tragis di dalam rumah sakit itu sendiri, dan sejak itu arwahnya terus "berpatroli" di lorong-lorong yang sama, terutama di dekat ruang bersalin dan ruang jenazah. Banyak pasien yang mengaku mendengar suara seretan pelan di lantai koridor menjelang tengah malam, meski saat diperiksa lorong itu selalu kosong.'},
   ],
   'tempat-misterius':[
-    {t:'Hotel Tua di Puncak', s:'Sebuah hotel yang ditinggalkan sejak tahun 1980-an masih berdiri di kawasan pegunungan. Warga sekitar bercerita lampu-lampu di lantai atas sering menyala sendiri di malam hari, padahal listrik sudah lama diputus.'},
-    {t:'Terowongan Kereta Tua', s:'Terowongan bekas jalur kereta zaman kolonial ini sudah tidak terpakai puluhan tahun. Beberapa pekerja yang lewat malam hari mengaku mendengar suara peluit kereta dan gemuruh rel, padahal tidak ada kereta yang lewat lagi sejak lama.'},
+    {t:'Hotel Tua di Puncak', s:'Sebuah hotel mewah yang ditinggalkan sejak tahun 1980-an masih berdiri kokoh di kawasan pegunungan, dengan cat yang mengelupas dan kaca jendela yang sebagian besar sudah pecah. Warga sekitar bercerita lampu-lampu di lantai atas sering menyala sendiri di malam hari, lengkap dengan siluet orang yang berjalan di balik tirai—padahal listrik gedung itu sudah diputus puluhan tahun lalu. Beberapa pendaki yang pernah bermalam di sekitar hotel itu mengaku mendengar suara musik orkestra samar dari dalam gedung, seolah sebuah pesta lama masih berlangsung di dalamnya.'},
+    {t:'Terowongan Kereta Tua', s:'Terowongan bekas jalur kereta zaman kolonial ini sudah tidak terpakai lebih dari lima puluh tahun, dengan relnya sebagian sudah tertutup tanah dan tanaman liar. Beberapa pekerja yang terpaksa lewat malam hari mengaku mendengar suara peluit kereta yang panjang dan gemuruh rel yang bergetar, padahal tidak ada kereta yang lewat lagi sejak jalur itu resmi ditutup. Konon, dulu pernah terjadi kecelakaan besar di dalam terowongan ini yang menewaskan banyak penumpang, dan sejak itu warga sekitar percaya kereta hantu masih melintasi jalur yang sama setiap malam tertentu.'},
+    {t:'Sekolah yang Ditinggalkan', s:'Bangunan sekolah dasar tua ini ditutup mendadak setelah sebuah insiden yang tidak pernah dijelaskan secara resmi oleh pemerintah setempat, dan sejak itu dibiarkan kosong selama lebih dari dua dekade. Warga sekitar bercerita bahwa di malam hari, dari luar pagar, terdengar suara anak-anak tertawa dan bermain di halaman sekolah yang gelap, lengkap dengan suara lonceng sekolah yang berbunyi tepat jam 3 sore—jam pulang sekolah di masa lalu. Beberapa orang yang penasaran dan mencoba masuk untuk membuktikan cerita ini mengaku merasa diikuti sepanjang koridor, meski tidak pernah melihat siapa pun.'},
+    {t:'Rumah Sakit Jiwa Lama', s:'Bangunan rumah sakit jiwa ini dibangun pada masa kolonial dan ditutup total setelah serangkaian insiden yang membuat pemerintah memutuskan memindahkan seluruh pasien ke fasilitas baru. Ruangan-ruangan bekas isolasi pasien masih memiliki coretan aneh di dindingnya, dan beberapa orang yang nekat menjelajah malam hari mengaku mendengar suara rantai diseret dari lantai bawah tanah yang pintunya sudah dipaku mati sejak lama. Konon, cahaya lilin kecil kadang terlihat bergerak dari jendela lantai tiga, padahal seluruh akses ke lantai itu sudah diblokir dengan tembok sejak puluhan tahun lalu.'},
+    {t:'Villa di Tepi Danau', s:'Villa mewah ini dibangun oleh seorang saudagar kaya di tepi danau terpencil, namun ditinggalkan setelah seluruh anggota keluarganya menghilang dalam satu malam yang sama tanpa penjelasan—hanya meninggalkan makan malam yang belum disentuh di meja. Nelayan setempat yang melintasi danau di malam hari sering melaporkan melihat cahaya lampu menyala di lantai dua villa itu, dan sesekali mendengar suara piano dimainkan dari kejauhan meski villa itu sudah tidak berpenghuni selama puluhan tahun. Sampai sekarang, tidak ada yang berani mendekati villa itu melewati tengah malam, apalagi memasuki ruang makan tempat hidangan terakhir keluarga itu masih tersaji.'},
   ],
 };
-HORROR['mystery-puzzle'] = [{t:'Teka-teki Ruang Terkunci', s:'Seorang pria ditemukan tewas di ruangan yang terkunci dari dalam, tanpa jendela terbuka. Satu-satunya petunjuk: lantai basah dan ada balok es besar mencair di sudut ruangan. Apa yang terjadi?', reveal:'Pelaku menggunakan balok es sebagai "senjata" tumpul, lalu meninggalkannya di ruangan sebelum mengunci pintu dari luar dengan mekanisme kunci otomatis. Es mencair, menghilangkan jejak, dan menciptakan ilusi ruangan terkunci sempurna.'}];
-HORROR['detective-case'] = [{t:'Kasus Kotak Perhiasan yang Hilang', s:'Kotak perhiasan Nyonya Ratna hilang dari kamarnya yang terkunci. Hanya ada 3 orang di rumah malam itu: pembantu, tukang kebun, dan anaknya sendiri. Pembantu bilang dia sedang memasak, tukang kebun bilang sedang menyiram taman (padahal hujan turun semalaman), dan sang anak bilang sedang tidur.', reveal:'Tukang kebun berbohong—ia mengaku menyiram taman padahal sedang hujan, artinya alasannya tidak masuk akal. Dialah pelakunya.'}];
-HORROR['interactive-mystery'] = [{t:'Rumah di Ujung Jalan', s:'Kamu menemukan rumah tua kosong saat pulang malam. Pintunya sedikit terbuka...'}];
+HORROR['mystery-puzzle'] = [
+  {t:'Teka-teki Ruang Terkunci', s:'Seorang pria ditemukan tewas di ruangan yang terkunci dari dalam, tanpa jendela terbuka. Satu-satunya petunjuk: lantai basah dan ada balok es besar mencair di sudut ruangan. Apa yang terjadi?', reveal:'Pelaku menggunakan balok es sebagai "senjata" tumpul, lalu meninggalkannya di ruangan sebelum mengunci pintu dari luar dengan mekanisme kunci otomatis. Es mencair, menghilangkan jejak, dan menciptakan ilusi ruangan terkunci sempurna.'},
+  {t:'Teka-teki Air yang Hilang', s:'Sebuah kolam ikan besar di taman kota tiba-tiba kering total dalam semalam, padahal tidak ada retakan atau kebocoran yang terlihat di dasar kolam. Petugas taman menemukan selang panjang tergeletak di semak-semak dekat kolam, dan tagihan air kompleks perumahan sebelah melonjak drastis bulan itu. Bagaimana air kolam bisa hilang?', reveal:'Warga di kompleks sebelah diam-diam menyedot air kolam menggunakan pompa dan selang panjang untuk mengisi kolam renang pribadinya semalaman, memanfaatkan taman yang sepi di malam hari. Tagihan air yang melonjak justru berasal dari listrik pompa yang dipakai, bukan dari PDAM.'},
+  {t:'Teka-teki Surat Wasiat', s:'Seorang kakek kaya meninggal dan meninggalkan surat wasiat yang ditulis tangan, namun pengacara keluarga curiga surat itu palsu meski tanda tangannya identik. Satu kejanggalan: surat itu bertanggal 3 bulan sebelum kematian, tapi menyebutkan nama cucu yang baru lahir 2 bulan setelah tanggal itu. Siapa yang berbohong?', reveal:'Surat wasiat itu palsu—dibuat setelah kematian kakek oleh salah satu ahli waris yang meniru tanda tangannya dari dokumen lama, namun lupa bahwa menyebut nama cucu yang belum lahir saat tanggal surat itu ditulis adalah kesalahan fatal yang membongkar kebohongannya.'},
+  {t:'Teka-teki Jendela Pecah', s:'Sebuah toko perhiasan dilaporkan kemalingan lewat jendela depan yang pecah dari luar, dengan pecahan kaca berserakan di dalam toko. Namun detektif yang datang langsung curiga ini bukan pencurian oleh orang luar. Apa yang janggal?', reveal:'Kaca yang pecah karena dipukul dari luar seharusnya membuat pecahan berserakan ke DALAM toko—yang memang terjadi di sini, tapi justru itu masalahnya: pemilik toko melaporkan alarm tidak berbunyi sama sekali, padahal sensor gerak seharusnya aktif. Ternyata pemilik toko sendiri yang memecahkan kaca dari dalam ke luar terlebih dahulu untuk klaim asuransi, lalu buru-buru menyapu sebagian pecahan ke dalam agar terlihat seperti pecah dari luar—namun ia lupa mematikan dulu baru menyalakan ulang alarmnya, sehingga waktu nonaktifnya alarm tercatat sebelum jam kejadian yang ia laporkan.'},
+  {t:'Teka-teki Sepatu yang Berbeda', s:'Seorang wanita ditemukan tak sadarkan diri di tangga rumahnya sendiri, mengaku terpeleset dan jatuh sendirian saat suaminya sedang dinas luar kota. Detektif memperhatikan sepatu yang ia pakai saat kejadian adalah sepatu hak tinggi kanan dan kiri dengan merek yang sama namun ukuran berbeda satu nomor. Apa artinya?', reveal:'Sepatu berbeda ukuran menunjukkan wanita itu buru-buru memakainya dalam kondisi panik atau gelap—kemungkinan besar karena sedang berusaha kabur dari seseorang di dalam rumah, bukan sekadar terpeleset sendirian seperti yang ia ceritakan. Petunjuk ini akhirnya membuka penyelidikan bahwa suaminya sebenarnya diam-diam pulang malam itu dan terlibat dalam insiden tersebut.'},
+];
+HORROR['detective-case'] = [
+  {t:'Kasus Kotak Perhiasan yang Hilang', s:'Kotak perhiasan Nyonya Ratna hilang dari kamarnya yang terkunci. Hanya ada 3 orang di rumah malam itu: pembantu, tukang kebun, dan anaknya sendiri. Pembantu bilang dia sedang memasak, tukang kebun bilang sedang menyiram taman (padahal hujan turun semalaman), dan sang anak bilang sedang tidur.', reveal:'Tukang kebun berbohong—ia mengaku menyiram taman padahal sedang hujan, artinya alasannya tidak masuk akal. Dialah pelakunya.'},
+  {t:'Kasus Uang Kas Toko', s:'Uang kas sebuah minimarket hilang sebesar 2 juta rupiah saat pergantian shift malam. Tiga kasir bertugas hari itu: kasir A bilang ia menghitung uang tepat jam 9 malam dan jumlahnya masih utuh, kasir B mengaku baru datang jam setengah 10, dan kasir C bilang ia sudah pulang sejak jam 8 malam. Rekaman CCTV di kasir mati total sejak jam 9 lebih 5 menit karena "gangguan listrik". Siapa yang paling dicurigai?', reveal:'Kasir A paling dicurigai—ia adalah orang terakhir yang mengonfirmasi uang masih utuh (jam 9), dan tepat 5 menit setelah itu CCTV "mati karena gangguan listrik", waktu yang terlalu pas untuk menjadi kebetulan. Kemungkinan besar dialah yang sengaja mematikan CCTV setelah memastikan tidak ada saksi lain di lokasi.'},
+  {t:'Kasus Vas Bunga Pecah', s:'Sebuah vas antik mahal ditemukan pecah di ruang tamu sebuah keluarga. Tiga anak di rumah itu saling menuduh: anak sulung bilang ia sedang di kamar mengerjakan PR, anak tengah bilang sedang bermain bola di halaman belakang, dan anak bungsu bilang sedang menonton TV di ruang keluarga—tepat di sebelah ruang tamu. Namun TV di ruang keluarga ternyata sedang mati listrik sejak sore itu. Siapa yang berbohong?', reveal:'Anak bungsu berbohong soal menonton TV, karena TV di ruang keluarga sedang mati listrik sejak sore—artinya ia sebenarnya berada di dekat ruang tamu (tempat vas pecah) namun mengarang alasan untuk menutupi keberadaannya di sana.'},
+  {t:'Kasus Alibi Palsu', s:'Seorang pegawai kantor dituduh mencuri laptop perusahaan yang hilang antara jam 12 siang sampai jam 1 siang. Ia mengaku sedang makan siang sendirian di kedai dekat kantor dan menunjukkan struk pembelian sebagai bukti, dengan jam transaksi tertera pukul 12:45. Namun detektif langsung tahu alibinya lemah. Kenapa?', reveal:'Struk dengan jam 12:45 hanya membuktikan ia berada di kedai SAAT itu, bukan sepanjang jam 12 sampai jam 1—ia tetap memiliki cukup waktu (sekitar 45 menit) sebelum jam 12:45 untuk mengambil laptop lalu pergi ke kedai. Alibi seperti ini disebut alibi sebagian yang tidak menutup seluruh rentang waktu kejadian.'},
+  {t:'Kasus Surat Ancaman', s:'Seorang pengusaha menerima surat ancaman yang diketik rapi menggunakan mesin ketik lama, mengancam akan membakar tokonya jika tidak membayar sejumlah uang. Detektif mencurigai orang dalam karena surat itu menyebutkan detail jadwal pengiriman barang toko yang seharusnya hanya diketahui segelintir orang. Setelah diperiksa, hanya manajer gudang yang mengaku "tidak pernah menyentuh mesin ketik tua di gudang" itu sama sekali. Apa yang janggal?', reveal:'Kejanggalannya justru pada penyangkalan itu sendiri—tidak ada seorang pun yang bertanya soal mesin ketik ke manajer gudang, tapi ia buru-buru menyangkalnya duluan sebelum ditanya. Penyangkalan yang tidak diminta seperti ini sering menjadi tanda bahwa orang tersebut menyembunyikan sesuatu terkait barang bukti itu.'},
+];
 
 function renderHorrorList(cat, el){
   const list = HORROR[cat];
@@ -4939,23 +5125,6 @@ TOOL_RENDERERS['random-horror'] = (el)=>{
     el.innerHTML = `<div class="card"><span class="tag">${cat}</span><b style="font-size:16px;display:block;margin-top:8px;">${h.t}</b><p style="font-size:13.5px;line-height:1.7;margin-top:10px;">${h.s}</p></div><button class="btn secondary" id="horrorAgain">🎲 Cerita Lain</button>`;
     document.getElementById('horrorAgain').onclick = draw;
     addXP(2);
-  }
-  draw();
-};
-TOOL_RENDERERS['interactive-mystery'] = (el)=>{
-  const story = {
-    start: {text:'Kamu menemukan rumah tua kosong saat pulang malam. Pintunya sedikit terbuka. Apa yang kamu lakukan?', opts:[['Masuk dan periksa','inside'],['Pergi saja, terlalu berisiko','leave']]},
-    inside: {text:'Kamu masuk. Suasana gelap dan berdebu. Di ujung lorong, kamu dengar suara ketukan pelan dari dalam lemari tua.', opts:[['Buka lemari itu','open'],['Segera keluar rumah','runaway']]},
-    open: {text:'Kamu membuka lemari... ternyata hanya jam kayu tua yang rusak, berbunyi karena angin dari jendela yang pecah. Kamu menghela napas lega, lalu memutuskan pulang dengan aman.', end:true, good:true},
-    runaway: {text:'Kamu lari keluar tanpa menoleh ke belakang. Esoknya kamu dengar dari tetangga, rumah itu memang terkenal angker sejak lama. Untung kamu memilih untuk pergi.', end:true, good:true},
-    leave: {text:'Kamu memilih untuk tidak ambil risiko dan langsung pulang. Keputusan yang bijak—rasa penasaran tidak selalu harus dituruti.', end:true, good:true},
-  };
-  let node = 'start';
-  function draw(){
-    const n = story[node];
-    el.innerHTML = `<div class="card"><p style="font-size:14px;line-height:1.7;">${n.text}</p>${n.end? `<button class="btn secondary" id="imAgain" style="margin-top:12px;">🔄 Mulai Lagi</button>` : n.opts.map(o=>`<button class="btn secondary" style="margin-top:8px;" data-go="${o[1]}">${o[0]}</button>`).join('')}</div>`;
-    if(n.end){ document.getElementById('imAgain').onclick = ()=>{ node='start'; draw(); }; addXP(4,'Cerita selesai'); }
-    else el.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{ node=b.dataset.go; draw(); });
   }
   draw();
 };
