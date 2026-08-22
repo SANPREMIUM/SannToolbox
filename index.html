@@ -1101,7 +1101,7 @@ function onVisibilityChangePresence(){
 function startPresence(){
   stopPresence();
   fsHeartbeat();
-  _presenceInterval = setInterval(fsHeartbeat, 20000);
+  _presenceInterval = setInterval(fsHeartbeat, 60000);
   document.addEventListener('visibilitychange', onVisibilityChangePresence);
   window.addEventListener('focus', fsHeartbeat);
 }
