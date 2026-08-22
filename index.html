@@ -1337,14 +1337,19 @@ async function drawGate(msg){
       </div>
       <button class="btn" onclick="enterApp()">Masuk ke Toolbox</button>
     `;
-    fsGetAllUsers().then(list=>{
-      const today = new Date().toDateString();
-      const regToday = list.filter(u=>u.createdAt===today).length;
-      const el1 = document.getElementById('adminRegToday');
-      const el2 = document.getElementById('adminTotalUsers');
-      if(el1) el1.textContent = regToday;
-      if(el2) el2.textContent = list.length;
-    });
+    (async ()=>{
+  const today = new Date().toDateString();
+  const el1 = document.getElementById('adminRegToday');
+  const el2 = document.getElementById('adminTotalUsers');
+  try{
+    const totalSnap = await db.collection('users').count().get();
+    if(el2) el2.textContent = totalSnap.data().count;
+  }catch(e){ console.error('Gagal hitung total user:', e); }
+  try{
+    const todaySnap = await db.collection('users').where('createdAt','==', today).count().get();
+    if(el1) el1.textContent = todaySnap.data().count;
+  }catch(e){ console.error('Gagal hitung user daftar hari ini:', e); }
+})();
   }
   const first = box.querySelector('input');
   if(first) setTimeout(()=>first.focus(), 50);
