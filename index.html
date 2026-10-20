@@ -4,17 +4,17 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
 <title>SANN Toolbox (SannToolbox) – Kumpulan Tools, Kalkulator &amp; Game Gratis</title>
-<meta name="description" content="SANN Toolbox (SannToolbox) — kumpulan tools, kalkulator, game, dan pelacak produktivitas gratis dalam satu aplikasi web.">
+<meta name="description" content="SANN Toolbox adalah aplikasi all in one dengan 150+ tools: kalkulator, game, pelacak produktivitas, perencana belanja, dan lainnya. Yang dibuat oleh Sandy Hendrawan.">
 <meta name="keywords" content="SANN Toolbox, SannToolbox, Sann Toolbox, tools online, kalkulator, game, produktivitas">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="https://sanpremium.github.io/SannToolbox/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="SANN Toolbox">
 <meta property="og:title" content="SANN Toolbox – Kumpulan Tools, Kalkulator &amp; Game">
-<meta property="og:description" content="Kumpulan tools, kalkulator, game, dan pelacak produktivitas gratis dalam satu aplikasi web.">
+<meta property="og:description" content="Aplikasi all in one dengan 150+ tools: kalkulator, game, pelacak produktivitas, perencana belanja, dan lainnya.">
 <meta property="og:url" content="https://sanpremium.github.io/SannToolbox/">
 <meta property="og:image" content="https://sanpremium.github.io/SannToolbox/icon-192.png">
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"SANN Toolbox","alternateName":["SannToolbox","Sann Toolbox"],"url":"https://sanpremium.github.io/SannToolbox/","applicationCategory":"UtilitiesApplication","operatingSystem":"Web","inLanguage":"id"}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"SANN Toolbox","alternateName":["SannToolbox","Sann Toolbox"],"url":"https://sanpremium.github.io/SannToolbox/","applicationCategory":"UtilitiesApplication","operatingSystem":"Web","inLanguage":"id","description":"SANN Toolbox adalah aplikasi all in one dengan 150+ tools: kalkulator, game, pelacak produktivitas, perencana belanja, dan lainnya. Yang dibuat oleh Sandy Hendrawan.","author":{"@type":"Person","name":"Sandy Hendrawan","alternateName":"Sandrian"}}</script>
 <meta name="theme-color" content="#0a0b12">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1271,7 +1271,7 @@ body.light .pf-sb-card{box-shadow:0 6px 14px -10px rgba(40,60,120,.35);}
 <body>
 <section id="seoInfo" style="position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;">
 <h1>SANN Toolbox (SannToolbox)</h1>
-<p>SANN Toolbox adalah aplikasi web gratis berisi kumpulan tools, kalkulator, game, dan pelacak produktivitas dalam satu tempat.</p>
+<p>SANN Toolbox adalah aplikasi atau website all in one yang memudahkan keseharianmu. Ada 150 lebih tools seperti kalkulator, game, pelacak produktivitas, perencana belanja, dan lain-lain. Aplikasi ini dibuat oleh Sandy Hendrawan, yang lebih dikenal dengan nama Sandrian, dan berhasil ia bangun di usia 19 tahun dengan konsep &quot;tools yang berguna untuk sebagian orang&quot;. Aplikasi ini akan terus berkembang dan fiturnya akan terus bertambah seiring berjalannya waktu.</p>
 <ul><li>Toolbox: kalkulator &amp; utilitas</li><li>Waktu</li><li>Learning Center</li><li>Game Center</li><li>Daily Tools</li><li>Produktivitas</li><li>Pengetahuan</li><li>Komputer</li><li>Sansekerta</li><li>Reflection Center</li></ul>
 </section>
 <div id="bootSplash">
@@ -4193,6 +4193,7 @@ const CATS = [
    {id:'split-bill', em:'🍽️', nm:'Pembagi Tagihan', desc:'Bagi tagihan makan bareng, rata atau sesuai pesanan, plus pajak & service'},
    {id:'wa-link', em:'💬', nm:'Kirim WhatsApp Tanpa Simpan Kontak', desc:'Ketik nomor, langsung buka chat WhatsApp'},
    {id:'belanja', em:'🛒', nm:'Daftar Belanja', desc:'Daftar belanja dengan centang dan perkiraan total harga'},
+   {id:'plan-belanja', em:'🧺', nm:'Perencana Belanja', desc:'Atur uang belanja untuk beberapa orang dan hari/minggu/bulan, dapat paket Hemat, Seimbang, atau Boros'},
    {id:'harga-jual', em:'🏷️', nm:'Kalkulator Harga Jual & Margin', desc:'Tentukan harga jual, cek untung, margin, markup, dan titik impas'},
    {id:'gaji-lembur', em:'💼', nm:'Kalkulator Gaji & Lembur', desc:'Hitung upah lembur hari kerja dan hari libur, plus estimasi gaji yang diterima'},
    {id:'kalori-bmi', em:'⚖️', nm:'Kalkulator Kalori & BMI', desc:'Hitung BMI, berat ideal, dan kebutuhan kalori harian'},
@@ -6912,6 +6913,182 @@ TOOL_RENDERERS['belanja'] = (el)=>{
     showConfirmModal({icon:'🗑️', title:'Kosongkan daftar?', message:'Semua barang di daftar belanja akan dihapus.', okText:'KOSONGKAN', onOk:()=>{ list=[]; save(); render(); }});
   };
   render();
+};
+
+/* ---------- Perencana Belanja: hitungan murni ---------- */
+const _pbUnits={g:{k:'g',f:1,l:'gram'},kg:{k:'g',f:1000,l:'kg'},ml:{k:'ml',f:1,l:'ml'},L:{k:'ml',f:1000,l:'liter'},pcs:{k:'pcs',f:1,l:'pcs'}};
+const _pbPrio={pokok:'Pokok',biasa:'Biasa',tambahan:'Pelengkap'};
+const _pbPkg={
+  hemat:{nm:'Hemat',em:'🌱',frac:0.75,w:{pokok:4,biasa:2,tambahan:0}},
+  seimbang:{nm:'Seimbang',em:'⚖️',frac:0.92,w:{pokok:3,biasa:2,tambahan:1}},
+  boros:{nm:'Boros',em:'🔥',frac:1,w:{pokok:2,biasa:2,tambahan:2}}
+};
+function _pbDays(n,u){ return Math.max(1,Math.round(n*(u==='minggu'?7:u==='bulan'?30:1))); }
+function _pbStep(k){ return k==='pcs'?1:100; }
+function _pbBase(it){ const u=_pbUnits[it.unit]||_pbUnits.pcs; const q=it.qty*u.f; const max=it.max>0?it.max*u.f:Infinity; return {k:u.k,q,up:it.price/q,step:_pbStep(u.k),max}; }
+function _pbAmt(base,k){
+  if(k==='g') return base>=1000 ? fmtNum(base/1000,2)+' kg' : fmtNum(base,0)+' g';
+  if(k==='ml') return base>=1000 ? fmtNum(base/1000,2)+' liter' : fmtNum(base,0)+' ml';
+  return base<1 ? 'kurang dari 1 pcs' : fmtNum(base,base<10?1:0)+' pcs';
+}
+function _pbPlan(items,budget,days,key){
+  const P=_pbPkg[key];
+  let rows=items.filter(i=>i.qty>0&&i.price>0).map(i=>{ const b=_pbBase(i); return {it:i,b,w:P.w[i.prio]!=null?P.w[i.prio]:P.w.biasa,n:0}; });
+  if(rows.length && !rows.some(r=>r.w>0)) rows.forEach(r=>r.w=1);
+  const T=budget*P.frac;
+  const cost=r=>r.n*r.b.step*r.b.up, stepCost=r=>r.b.step*r.b.up;
+  const order={pokok:0,biasa:1,tambahan:2};
+  let left=T; const skipped=[];
+  rows.slice().sort((a,b)=>order[a.it.prio]-order[b.it.prio]).forEach(r=>{
+    if(r.w<=0){ r.why='ditunda'; skipped.push(r); return; }
+    if(stepCost(r)<=left+1e-9 && r.b.step<=r.b.max){ r.n=1; left-=stepCost(r); }
+    else { r.why='budget'; skipped.push(r); }
+  });
+  for(let guard=0;guard<200000;guard++){
+    let best=null;
+    rows.forEach(r=>{
+      if(r.w<=0||r.n===0) return;
+      if(stepCost(r)>left+1e-9) return;
+      if((r.n+1)*r.b.step>r.b.max+1e-9) return;
+      const sc=cost(r)/r.w;
+      if(!best||sc<best.sc-1e-9) best={r,sc};
+    });
+    if(!best) break;
+    best.r.n++; left-=stepCost(best.r);
+  }
+  const total=rows.reduce((s,r)=>s+cost(r),0);
+  const capped=rows.filter(r=>r.n>0&&(r.n+1)*r.b.step>r.b.max+1e-9);
+  return {key,P,rows,total,sisa:budget-total,sisaPct:budget>0?(budget-total)/budget*100:0,perDay:budget/days,skipped,capped,
+    amount:r=>r.n*r.b.step, cost, bought:rows.filter(r=>r.n>0)};
+}
+
+/* ---------- Perencana Belanja ---------- */
+TOOL_RENDERERS['plan-belanja'] = (el)=>{
+  const KEY='planBelanjaData';
+  const saved=DB.get(KEY,{})||{};
+  let budget=+saved.budget||0, people=Math.max(1,Math.round(+saved.people||1)), meals=Math.min(10,Math.max(1,Math.round(+saved.meals||3))), durN=+saved.durN||7, durU=['hari','minggu','bulan'].includes(saved.durU)?saved.durU:'hari';
+  let items=Array.isArray(saved.items)?saved.items:[], pkg=_pbPkg[saved.pkg]?saved.pkg:'seimbang', shown=false;
+  const save=()=>DB.set(KEY,{budget,people,meals,durN,durU,items,pkg});
+  const $=id=>document.getElementById(id);
+  el.innerHTML=`
+    <p class="page-sub">Masukkan uang belanja, jumlah orang, makan berapa kali sehari, lama pakainya, dan daftar barang. Nanti kamu dapat 3 paket: Hemat, Seimbang, Boros.</p>
+    <div class="card">
+      <div class="field"><label>Uang untuk belanja (Rp)</label><input type="number" inputmode="numeric" id="pbBudget" placeholder="300000"></div>
+      <div class="field"><label>Untuk berapa orang?</label><input type="number" inputmode="numeric" id="pbPpl" min="1"></div>
+      <div class="field"><label>Makan berapa kali sehari (tiap orang)?</label><input type="number" inputmode="numeric" id="pbMeal" min="1" max="10"></div>
+      <div class="field"><label>Untuk berapa lama?</label><input type="number" inputmode="numeric" id="pbDur" min="1"></div>
+      <div class="chip-row" id="pbDurU" style="margin-bottom:6px;">
+        <span class="chip" data-u="hari">Hari</span><span class="chip" data-u="minggu">Minggu</span><span class="chip" data-u="bulan">Bulan</span>
+      </div>
+      <div class="small-note" id="pbDurInfo" style="margin-top:4px;"></div>
+    </div>
+    <div class="section-label">🧺 Tambah barang</div>
+    <div class="card">
+      <div class="field"><label>Nama barang</label><input type="text" id="pbNm" placeholder="Beras" maxlength="40"></div>
+      <div style="display:flex;gap:8px;">
+        <div class="field" style="flex:1;"><label>Jumlah</label><input type="number" inputmode="decimal" id="pbQty" value="1"></div>
+        <div class="field" style="flex:1;"><label>Satuan</label><select id="pbUnit"><option value="kg">kg</option><option value="g">gram</option><option value="L">liter</option><option value="ml">ml</option><option value="pcs">pcs/butir/bungkus</option></select></div>
+      </div>
+      <div class="field"><label>Harga untuk jumlah di atas (Rp)</label><input type="number" inputmode="numeric" id="pbPr" placeholder="15000"></div>
+      <div style="display:flex;gap:8px;">
+        <div class="field" style="flex:1;"><label>Prioritas</label><select id="pbPrio"><option value="pokok">Pokok</option><option value="biasa" selected>Biasa</option><option value="tambahan">Pelengkap</option></select></div>
+        <div class="field" style="flex:1;"><label>Maks. beli (opsional)</label><input type="number" inputmode="decimal" id="pbMax" placeholder="-"></div>
+      </div>
+      <button class="btn" id="pbAdd">➕ Tambah</button>
+      <div class="small-note">Contoh: Beras, 1 kg, Rp 15.000. Isi "Maks. beli" (sesuai satuan) kalau barang itu ada batas wajarnya, misalnya garam atau kopi.</div>
+    </div>
+    <div id="pbList"></div>
+    <button class="btn" id="pbGo" style="margin-top:6px;">🧮 Buat Rencana Belanja</button>
+    <div id="pbOut"></div>`;
+  $('pbBudget').value=budget||''; $('pbDur').value=durN; $('pbPpl').value=people; $('pbMeal').value=meals;
+  const days=()=>_pbDays(durN,durU);
+  function drawDur(){
+    el.querySelectorAll('#pbDurU .chip').forEach(c=>c.classList.toggle('active',c.dataset.u===durU));
+    const d=days();
+    $('pbDurInfo').innerHTML = `= ${fmtNum(d,0)} hari · ${fmtNum(d*people*meals,0)} kali makan` + (budget>0 ? `<br>Jatah ${_prRp(budget/d)} per hari · ${_prRp(budget/d/people)} per orang per hari · ${_prRp(budget/d/people/meals)} per orang sekali makan` : '');
+  }
+  function drawList(){
+    $('pbList').innerHTML = items.length ? `<div class="section-label">📝 Daftar barang (${items.length})</div>`+items.map(i=>`
+      <div class="li-row">
+        <div class="li-tx"><b>${escapeHtml(i.nm)}</b> <span style="color:var(--muted);">· ${fmtNum(i.qty,2)} ${(_pbUnits[i.unit]||_pbUnits.pcs).l}</span><br>
+        <span style="color:var(--muted);font-size:12px;">${_prRp(i.price)} · ${_pbPrio[i.prio]||'Biasa'}${i.max>0?' · maks '+fmtNum(i.max,2):''}</span></div>
+        <span class="li-del" data-del="${i.id}">✕</span>
+      </div>`).join('') : `<div class="empty-state"><span class="em">🧺</span>Belum ada barang. Tambahkan dulu ya.</div>`;
+    $('pbList').querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{ items=items.filter(x=>x.id!==+b.dataset.del); save(); drawList(); if(shown) drawOut(); });
+  }
+  function reasonText(p,days){
+    const names=a=>a.map(r=>r.it.nm).join(', ');
+    const ditunda=p.skipped.filter(r=>r.why==='ditunda'), kurang=p.skipped.filter(r=>r.why==='budget');
+    const sisaTxt=`Sisa ${_prRp(p.sisa)} (${fmtNum(p.sisaPct,1)}%)`;
+    let t='';
+    if(p.key==='hemat'){
+      t=`Fokus ke kebutuhan pokok dan barang biasa, jadi stok dasar aman dan uang tidak cepat habis. `;
+      t+= ditunda.length ? `Barang pelengkap (${names(ditunda)}) ditunda dulu. ` : '';
+      t+=`Sengaja hanya memakai sekitar 75% uang supaya ada dana cadangan. ${sisaTxt} bisa dipakai kalau harga naik atau ada keperluan mendadak.`;
+    } else if(p.key==='seimbang'){
+      t=`Semua barang kebagian, dengan porsi terbesar untuk kebutuhan pokok, lalu barang biasa, dan pelengkap secukupnya. Sekitar 92% uang dipakai, jadi tetap ada ruang jaga-jaga. ${sisaTxt}.`;
+    } else {
+      t=`Hampir seluruh uang dipakai dan barang pelengkap dapat jatah sama besar dengan kebutuhan pokok, jadi belanjanya paling banyak dan lengkap. Risikonya hampir tidak ada cadangan: ${sisaTxt}. Kalau harga naik atau ada keperluan mendadak, uangnya bisa kurang sebelum ${fmtNum(days,0)} hari selesai.`;
+    }
+    if(kurang.length) t+=` Belum kebeli karena uang tidak cukup: ${names(kurang)}.`;
+    if(p.capped.length) t+=` Sudah mentok di batas maksimum: ${names(p.capped)}.`;
+    if(!p.bought.length) t='Uangnya belum cukup untuk membeli satu pun barang di daftar. Tambah uang atau pilih barang yang lebih murah.';
+    return t;
+  }
+  function planText(p,d){
+    return `Rencana Belanja ${p.P.nm}\nUang ${_prRp(budget)} untuk ${people} orang (makan ${meals}x sehari), ${durN} ${durU}${durU==='hari'?'':' ('+d+' hari)'}\n\n`+
+      p.bought.map(r=>`- ${r.it.nm}: ${_pbAmt(p.amount(r),r.b.k)} (${_prRp(p.cost(r))})`).join('\n')+
+      `\n\nTotal ${_prRp(p.total)}\nSisa ${_prRp(p.sisa)}`;
+  }
+  function drawOut(){
+    const d=days();
+    if(!(budget>0)){ $('pbOut').innerHTML=''; return; }
+    const plans={}; Object.keys(_pbPkg).forEach(k=>plans[k]=_pbPlan(items,budget,d,k));
+    const p=plans[pkg];
+    $('pbOut').innerHTML=`
+      <div class="section-label">🎁 Pilih paket</div>
+      <div class="chip-row">${Object.keys(_pbPkg).map(k=>`<span class="chip ${k===pkg?'active':''}" data-p="${k}">${_pbPkg[k].em} ${_pbPkg[k].nm}</span>`).join('')}</div>
+      <div class="stat-row">
+        <div class="s"><b>${_prRp(p.total)}</b><span>Total belanja</span></div>
+        <div class="s"><b>${_prRp(p.sisa)}</b><span>Sisa (${fmtNum(p.sisaPct,1)}%)</span></div>
+        <div class="s"><b>${_prRp(p.total/d/people)}</b><span>Per orang per hari</span></div>
+      </div>
+      <div class="small-note" style="margin:-4px 0 10px;text-align:center;">Per orang: ${_prRp(p.total/d/people/meals)} sekali makan · ${_prRp(p.total/d/people)} per hari · ${fmtNum(d*people*meals,0)} kali makan total</div>
+      <div class="card"><b>Kenapa paket ${p.P.nm}?</b><div class="small-note" style="font-size:13px;color:var(--text);margin-top:6px;">${escapeHtml(reasonText(p,d))}</div></div>
+      <div class="section-label">🛍️ Yang dibeli</div>
+      ${p.bought.length ? p.bought.map(r=>{ const a=p.amount(r); return `
+        <div class="li-row"><div class="li-tx"><b>${escapeHtml(r.it.nm)}</b> <span style="color:var(--accent);font-weight:700;">${_pbAmt(a,r.b.k)}</span><br>
+        <span style="color:var(--muted);font-size:12px;">${_prRp(p.cost(r))} · ≈ ${_pbAmt(a/d,r.b.k)} per hari · ≈ ${_pbAmt(a/d/people/meals,r.b.k)} per orang sekali makan · ${_pbPrio[r.it.prio]||'Biasa'}</span></div></div>`; }).join('') : `<div class="empty-state"><span class="em">🪙</span>Belum ada barang yang terbeli</div>`}
+      ${p.skipped.length?`<div class="small-note">Tidak dibeli di paket ini: ${p.skipped.map(r=>escapeHtml(r.it.nm)).join(', ')}.</div>`:''}
+      <div class="section-label">📊 Bandingkan paket</div>
+      ${Object.keys(plans).map(k=>`<div class="li-row"><div class="li-tx"><b>${_pbPkg[k].em} ${_pbPkg[k].nm}</b><br><span style="color:var(--muted);font-size:12px;">Belanja ${_prRp(plans[k].total)} · sisa ${_prRp(plans[k].sisa)} (${fmtNum(plans[k].sisaPct,1)}%)</span></div></div>`).join('')}
+      <button class="btn secondary" id="pbCopy" style="margin-top:8px;">📋 Salin rencana ${p.P.nm}</button>
+      <div class="small-note">Jumlah dihitung dari porsi uang per prioritas, bukan dari kebutuhan gizi. Cek lagi apakah jumlahnya masuk akal untuk keluargamu.</div>`;
+    $('pbOut').querySelectorAll('[data-p]').forEach(c=>c.onclick=()=>{ pkg=c.dataset.p; save(); playSfx('click',1.0); drawOut(); });
+    $('pbCopy').onclick=()=>_prCopy(planText(p,d));
+  }
+  $('pbBudget').oninput=e=>{ budget=Math.max(0,_prNum(e.target.value)); save(); drawDur(); if(shown) drawOut(); };
+  $('pbPpl').oninput=e=>{ people=Math.max(1,Math.round(_prNum(e.target.value))||1); save(); drawDur(); if(shown) drawOut(); };
+  $('pbMeal').oninput=e=>{ meals=Math.min(10,Math.max(1,Math.round(_prNum(e.target.value))||1)); save(); drawDur(); if(shown) drawOut(); };
+  $('pbDur').oninput=e=>{ durN=Math.max(1,Math.round(_prNum(e.target.value))||1); save(); drawDur(); if(shown) drawOut(); };
+  el.querySelectorAll('#pbDurU .chip').forEach(c=>c.onclick=()=>{ durU=c.dataset.u; save(); drawDur(); if(shown) drawOut(); });
+  $('pbAdd').onclick=()=>{
+    const nm=$('pbNm').value.trim(); if(!nm) return toast('Isi nama barangnya dulu ya');
+    const qty=_prNum($('pbQty').value), price=_prNum($('pbPr').value);
+    if(!(qty>0)) return toast('Jumlah harus lebih dari 0');
+    if(!(price>0)) return toast('Isi harganya dulu ya');
+    items.push({id:Date.now(),nm,qty,unit:$('pbUnit').value,price,prio:$('pbPrio').value,max:Math.max(0,_prNum($('pbMax').value))});
+    save(); $('pbNm').value=''; $('pbPr').value=''; $('pbMax').value=''; $('pbQty').value=1;
+    drawList(); if(shown) drawOut(); $('pbNm').focus();
+  };
+  $('pbNm').onkeydown=e=>{ if(e.key==='Enter') $('pbPr').focus(); };
+  $('pbGo').onclick=()=>{
+    if(!(budget>0)) return toast('Isi uang belanjanya dulu ya');
+    if(!items.length) return toast('Tambahkan minimal satu barang');
+    shown=true; playSfx('click',1.2); drawOut();
+    $('pbOut').scrollIntoView({behavior:'smooth',block:'start'});
+  };
+  drawDur(); drawList();
 };
 
 /* ---------- 8. Kalkulator Harga Jual & Margin ---------- */
