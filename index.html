@@ -3,8 +3,18 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
-<title>SANN Toolbox</title>
-<meta name="description" content="SANN Toolbox — kumpulan tools, kalkulator, game, dan pelacak produktivitas dalam satu aplikasi.">
+<title>SANN Toolbox (SannToolbox) – Kumpulan Tools, Kalkulator &amp; Game Gratis</title>
+<meta name="description" content="SANN Toolbox (SannToolbox) — kumpulan tools, kalkulator, game, dan pelacak produktivitas gratis dalam satu aplikasi web.">
+<meta name="keywords" content="SANN Toolbox, SannToolbox, Sann Toolbox, tools online, kalkulator, game, produktivitas">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://sanpremium.github.io/SannToolbox/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="SANN Toolbox">
+<meta property="og:title" content="SANN Toolbox – Kumpulan Tools, Kalkulator &amp; Game">
+<meta property="og:description" content="Kumpulan tools, kalkulator, game, dan pelacak produktivitas gratis dalam satu aplikasi web.">
+<meta property="og:url" content="https://sanpremium.github.io/SannToolbox/">
+<meta property="og:image" content="https://sanpremium.github.io/SannToolbox/icon-192.png">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"SANN Toolbox","alternateName":["SannToolbox","Sann Toolbox"],"url":"https://sanpremium.github.io/SannToolbox/","applicationCategory":"UtilitiesApplication","operatingSystem":"Web","inLanguage":"id"}</script>
 <meta name="theme-color" content="#0a0b12">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -14,7 +24,7 @@
 <link rel="icon" href="./icon-192.png">
 <link rel="apple-touch-icon" href="./icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Lora:wght@400;500;600;700&family=Fredoka:wght@400;500;600;700&family=Caveat:wght@400;500;600;700&family=Anton&family=Barlow+Condensed:wght@400;500;600;700&family=Courier+Prime:wght@400;700&family=Nunito+Sans:wght@400;600;700;800&family=Merriweather:wght@400;700&family=Cormorant+Garamond:wght@500;600;700&family=Josefin+Sans:wght@400;500;600;700&family=Orbitron:wght@400;500;600;700;800&family=Press+Start+2P&family=Bangers&family=Pacifico&family=Audiowide&family=Cinzel:wght@400;500;600;700&family=Permanent+Marker&family=Righteous&family=Rajdhani:wght@400;500;600;700&family=Creepster&family=Monoton&family=Special+Elite&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jsqr/1.4.0/jsQR.js" defer></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
@@ -4122,6 +4132,7 @@ const CATS = [
  ]},
  {id:'game', em:'🎮', nm:'Game Center', desc:'Kumpulan game seru', tools:[
    {id:'g-tebakangka', em:'🔢', nm:'Tebak Angka', desc:'Tebak angka rahasia dalam batas tertentu'},
+   {id:'g-tebaknegara', em:'🌍', nm:'Tebak Negara', desc:'Lihat bendera, tebak negaranya: 10, 20, atau 50 soal'},
    {id:'g-rps', em:'✂️', nm:'Batu Gunting Kertas', desc:'Lawan komputer: mode bebas / best of 3 & 5, 3 tingkat kesulitan'},
    {id:'g-ttt', em:'⭕', nm:'Tic Tac Toe', desc:'Lawan komputer, siapa cepat menang'},
    {id:'g-memory', em:'🃏', nm:'Memory Card', desc:'Cocokkan pasangan kartu: 4 level, lawan waktu, atau 2 pemain'},
@@ -4914,6 +4925,7 @@ function gameLabel(k){
     'g-whack':'Whack-a-Mole (skor tertinggi)',
     'g-sliding':'Sliding Puzzle (langkah tersedikit)',
     'g-tebakangka':'Tebak Angka (percobaan tersedikit)',
+    'g-tebaknegara':'Tebak Negara (skor tertinggi)',
     'g-stroop':'Stroop Color (skor tertinggi)',
     'g-catch':'Catch Fruits (skor tertinggi)',
     'g-terbang':'Terbang Seru (skor tertinggi)',
@@ -9886,16 +9898,28 @@ const FONT_CHOICES = [
   {id:'default', nm:'Default', body:"'Manrope',system-ui,sans-serif", disp:"'Space Grotesk',system-ui,sans-serif"},
   {id:'grotesk', nm:'Grotesk', body:"'Space Grotesk',system-ui,sans-serif", disp:"'Space Grotesk',system-ui,sans-serif"},
   {id:'mono',    nm:'Kode (Mono)', body:"'JetBrains Mono',monospace", disp:"'JetBrains Mono',monospace"},
-  {id:'serif',   nm:'Klasik (Serif)', body:"Georgia,'Times New Roman',serif", disp:"Georgia,'Times New Roman',serif"},
-  {id:'rounded', nm:'Bulat Lucu', body:"ui-rounded,'Trebuchet MS','Segoe UI',system-ui,sans-serif", disp:"ui-rounded,'Trebuchet MS',system-ui,sans-serif"},
-  {id:'tulis',   nm:'Tulisan Tangan', body:"'Segoe Print','Comic Sans MS','Chalkboard SE',cursive", disp:"'Segoe Print','Comic Sans MS','Chalkboard SE',cursive"},
-  {id:'tebal',   nm:'Tebal (Impact)', body:"Impact,'Arial Narrow Bold','Arial Black',sans-serif", disp:"Impact,'Arial Narrow Bold','Arial Black',sans-serif"},
-  {id:'sempit',  nm:'Sempit (Condensed)', body:"'Arial Narrow','Roboto Condensed','Helvetica Neue',sans-serif", disp:"'Arial Narrow','Roboto Condensed','Helvetica Neue',sans-serif"},
-  {id:'ketik',   nm:'Mesin Ketik', body:"'Courier New',Courier,monospace", disp:"'Courier New',Courier,monospace"},
-  {id:'humanis', nm:'Humanis', body:"Verdana,Geneva,'DejaVu Sans',sans-serif", disp:"Verdana,Geneva,'DejaVu Sans',sans-serif"},
-  {id:'buku',    nm:'Buku (Palatino)', body:"Palatino,'Palatino Linotype','Book Antiqua',serif", disp:"Palatino,'Palatino Linotype','Book Antiqua',serif"},
-  {id:'elegan',  nm:'Elegan (Garamond)', body:"Garamond,'EB Garamond','Times New Roman',serif", disp:"Garamond,'EB Garamond','Times New Roman',serif"},
-  {id:'kapital', nm:'Kecil Kapital', body:"'Trebuchet MS','Segoe UI',system-ui,sans-serif", disp:"'Trebuchet MS','Segoe UI',system-ui,sans-serif"}
+  {id:'serif',   nm:'Klasik (Serif)', body:"'Lora',Georgia,'Times New Roman',serif", disp:"'Lora',Georgia,'Times New Roman',serif"},
+  {id:'rounded', nm:'Bulat Lucu', body:"'Fredoka',ui-rounded,system-ui,sans-serif", disp:"'Fredoka',ui-rounded,system-ui,sans-serif"},
+  {id:'tulis',   nm:'Tulisan Tangan', body:"'Caveat','Segoe Print','Comic Sans MS',cursive", disp:"'Caveat','Segoe Print','Comic Sans MS',cursive"},
+  {id:'tebal',   nm:'Tebal (Impact)', body:"'Anton',Impact,'Arial Black',sans-serif", disp:"'Anton',Impact,'Arial Black',sans-serif"},
+  {id:'sempit',  nm:'Sempit (Condensed)', body:"'Barlow Condensed','Arial Narrow','Roboto Condensed',sans-serif", disp:"'Barlow Condensed','Arial Narrow','Roboto Condensed',sans-serif"},
+  {id:'ketik',   nm:'Mesin Ketik', body:"'Courier Prime','Courier New',Courier,monospace", disp:"'Courier Prime','Courier New',Courier,monospace"},
+  {id:'humanis', nm:'Humanis', body:"'Nunito Sans',Verdana,Geneva,sans-serif", disp:"'Nunito Sans',Verdana,Geneva,sans-serif"},
+  {id:'buku',    nm:'Buku (Palatino)', body:"'Merriweather',Palatino,'Book Antiqua',serif", disp:"'Merriweather',Palatino,'Book Antiqua',serif"},
+  {id:'elegan',  nm:'Elegan (Garamond)', body:"'Cormorant Garamond',Garamond,'Times New Roman',serif", disp:"'Cormorant Garamond',Garamond,'Times New Roman',serif"},
+  {id:'kapital', nm:'Kecil Kapital', body:"'Josefin Sans','Trebuchet MS',system-ui,sans-serif", disp:"'Josefin Sans','Trebuchet MS',system-ui,sans-serif"},
+  {id:'scifi',   nm:'Futuristik (Sci-Fi)', body:"'Orbitron',system-ui,sans-serif", disp:"'Orbitron',system-ui,sans-serif"},
+  {id:'pixel',   nm:'Retro Pixel (8-bit)', body:"'Press Start 2P',monospace", disp:"'Press Start 2P',monospace"},
+  {id:'komik',   nm:'Komik', body:"'Bangers',cursive", disp:"'Bangers',cursive"},
+  {id:'skrip',   nm:'Tulisan Sambung', body:"'Pacifico',cursive", disp:"'Pacifico',cursive"},
+  {id:'epik',    nm:'Epik (Kerajaan)', body:"'Cinzel',serif", disp:"'Cinzel',serif"},
+  {id:'spidol',  nm:'Spidol Tebal', body:"'Permanent Marker',cursive", disp:"'Permanent Marker',cursive"},
+  {id:'cyber',   nm:'Cyber Teknik', body:"'Rajdhani',system-ui,sans-serif", disp:"'Rajdhani',system-ui,sans-serif"},
+  {id:'arcade',  nm:'Arcade', body:"'Audiowide',system-ui,sans-serif", disp:"'Audiowide',system-ui,sans-serif"},
+  {id:'retro',   nm:'Retro 70an', body:"'Righteous',system-ui,sans-serif", disp:"'Righteous',system-ui,sans-serif"},
+  {id:'horor',   nm:'Horor', body:"'Creepster',cursive", disp:"'Creepster',cursive"},
+  {id:'neonlamp',nm:'Lampu Neon (judul)', body:"'Manrope',system-ui,sans-serif", disp:"'Monoton',cursive"},
+  {id:'koran',   nm:'Mesin Tik Tua', body:"'Special Elite','Courier New',monospace", disp:"'Special Elite','Courier New',monospace"}
 ];
 function applyFont(){
   const f = FONT_CHOICES.find(x=>x.id===DB.get('fontId','default')) || FONT_CHOICES[0];
@@ -9911,9 +9935,9 @@ TOOL_RENDERERS['set-font'] = (el)=>{
       <div class="card"><div style="font-family:var(--font-display);font-size:20px;font-weight:700;">Contoh Judul SANN</div>
       <p style="margin:6px 0 0;font-size:14px;">Beginilah tampilan teks di seluruh aplikasi. 1234567890</p></div>
       ${FONT_CHOICES.map(f=>`<div class="li-row clickable" data-f="${f.id}" style="${cur===f.id?'outline:2px solid var(--accent);':''}">
-        <div class="li-tx"><b style="font-family:${f.body};font-size:15px;">${f.nm}</b><br><span style="font-family:${f.body};font-size:12.5px;color:var(--muted);">Aku suka main di SANN Toolbox</span></div>
+        <div class="li-tx"><b style="font-family:${f.disp};font-size:15px;">${f.nm}</b><br><span style="font-family:${f.body};font-size:12.5px;color:var(--muted);">Aku suka main di SANN Toolbox</span></div>
         <span style="color:var(--accent);font-weight:800;">${cur===f.id?'✓':''}</span></div>`).join('')}
-      <p class="small-note">Font disimpan di HP ini. Font Tulisan Tangan dan Bulat tergantung font bawaan HP kamu.</p>`;
+      <p class="small-note">Font disimpan di HP ini. Font dimuat dari internet, jadi butuh koneksi saat pertama kali dipakai.</p>`;
     el.querySelectorAll('[data-f]').forEach(r=>r.onclick=()=>{
       DB.set('fontId', r.dataset.f); applyFont(); playSfx('select',1.0); draw();
     });
@@ -10172,7 +10196,7 @@ TOOL_RENDERERS['tabel-periodik'] = (el)=>{
     if(z<=103) return [10,z-86]; return [7,z-100];
   }
   const GAS=[1,2,7,8,9,10,17,18,36,54,86,118], LIQ=[35,80];
-  let sel=null, filter=null, q='';
+  let sel=null, filter=null, q='', ptScrollX=0;
   function draw(){
     const info = sel? (()=>{ const z=sel,[s,n,m]=PT_DATA[z-1],c=catOf(z); return `<div class="card" style="border-left:6px solid ${CATS_PT[c][1]};">
       <div style="display:flex;gap:14px;align-items:center;"><div style="font-size:42px;font-weight:800;font-family:var(--font-display);color:${CATS_PT[c][1]};min-width:64px;">${s}</div>
@@ -10190,9 +10214,12 @@ TOOL_RENDERERS['tabel-periodik'] = (el)=>{
     el.innerHTML = `
       <div class="field"><input type="text" id="ptQ" placeholder="Cari unsur: emas, Fe, 26..." value="${_sxEsc(q)}"></div>
       ${info}
-      <div style="overflow-x:auto;padding:4px 2px 10px;"><div style="display:grid;grid-template-columns:repeat(18,34px);grid-template-rows:repeat(7,38px) 10px repeat(2,38px);gap:2px;width:max-content;">${cells}</div></div>
+      <div id="ptScroll" style="overflow-x:auto;padding:4px 2px 10px;"><div style="display:grid;grid-template-columns:repeat(18,34px);grid-template-rows:repeat(7,38px) 10px repeat(2,38px);gap:2px;width:max-content;">${cells}</div></div>
       <div class="chip-row" style="margin-top:6px;">${Object.keys(CATS_PT).map(k=>`<span class="chip ${filter===k?'active':''}" data-f="${k}" style="border-color:${CATS_PT[k][1]};">${CATS_PT[k][0]}</span>`).join('')}</div>
       <p class="small-note">Geser tabel ke kanan-kiri kalau belum kelihatan semua. Ketuk kategori buat menyorot satu golongan.</p>`;
+    const sc=el.querySelector('#ptScroll');
+    sc.scrollLeft=ptScrollX;
+    sc.addEventListener('scroll',()=>{ ptScrollX=sc.scrollLeft; },{passive:true});
     el.querySelectorAll('[data-z]').forEach(c=>c.onclick=()=>{ sel=+c.dataset.z; playSfx('tap',1.2); draw(); });
     el.querySelectorAll('[data-f]').forEach(c=>c.onclick=()=>{ filter = filter===c.dataset.f?null:c.dataset.f; draw(); });
     const i=document.getElementById('ptQ');
@@ -12692,6 +12719,108 @@ TOOL_RENDERERS['g-tebakangka'] = (el)=>{
     q('taInput').onkeydown=e=>{ if(e.key==='Enter') guess(); };
     q('taReset').onclick=()=>{ playSfx('swoosh',1.0); begin(); };
     q('taMenu').onclick=()=>{ phase='menu'; draw(); };
+  }
+  draw();
+};
+
+/* Tebak Negara — tebak negara dari emoji benderanya. */
+TOOL_RENDERERS['g-tebaknegara'] = (el)=>{
+  const COUNTS=[10,20,50];
+  let total=DB.get('tebakNegaraN',10); if(!COUNTS.includes(total)) total=10;
+  let phase='menu', deck=[], idx=0, score=0, right=0, streak=0, bestStreak=0, picked=null, opts=[];
+  const q=id=>el.querySelector('#'+id);
+  const norm=v=>v[0];
+
+  function makeOpts(cur){
+    const same=NEGARA_DATA.filter(x=>x[0]!==cur[0] && x[4]===cur[4]);
+    const other=NEGARA_DATA.filter(x=>x[0]!==cur[0] && x[4]!==cur[4]);
+    const pool=_sxShuffle(same).slice(0,3);
+    if(pool.length<3) pool.push(..._sxShuffle(other).slice(0,3-pool.length));
+    return _sxShuffle([cur,...pool]);
+  }
+  function begin(){
+    const n=Math.min(total,NEGARA_DATA.length);
+    deck=_sxShuffle(NEGARA_DATA).slice(0,n);
+    idx=0; score=0; right=0; streak=0; bestStreak=0; picked=null;
+    opts=makeOpts(deck[0]); phase='play'; draw();
+  }
+  function answer(name){
+    if(picked!==null) return;
+    picked=name; const cur=deck[idx];
+    if(name===cur[0]){
+      right++; streak++; bestStreak=Math.max(bestStreak,streak);
+      score+=10+Math.min(streak-1,5)*2;
+      playSfx('correct',1.0); vibrate(40);
+    } else { streak=0; playSfx('wrong',1.0); vibrate(80); }
+    draw();
+  }
+  function next(){
+    idx++; picked=null;
+    if(idx>=deck.length){ finish(); return; }
+    opts=makeOpts(deck[idx]); draw();
+  }
+  function finish(){
+    phase='end';
+    let rec=false;
+    if(total===10) rec=saveHighscore('g-tebaknegara', score, true);
+    if(right>=Math.ceil(deck.length*0.6)){ recordGameWin(); }
+    addXP(Math.max(2,Math.round(right*1.2)),'Tebak Negara');
+    draw(rec);
+  }
+  function draw(rec){
+    if(phase==='menu'){
+      const best=DB.get('gameScores',{})['g-tebaknegara'];
+      el.innerHTML=`
+        <p class="page-sub">Lihat bendera, tebak negaranya! Pilih jumlah soal dulu.</p>
+        <div class="section-label" style="margin-top:4px;">Jumlah soal</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;">
+          ${COUNTS.map(c=>`<span class="chip ${c===total?'active':''}" data-n="${c}">${c} soal</span>`).join('')}
+        </div>
+        <div class="stat-row"><div class="s"><b>${best!==undefined?best:'—'}</b><span>Skor tertinggi (10 soal)</span></div><div class="s"><b>${NEGARA_DATA.length}</b><span>Negara</span></div></div>
+        <button class="btn" id="tnStart">Mulai</button>`;
+      el.querySelectorAll('[data-n]').forEach(c=>c.onclick=()=>{ total=+c.dataset.n; DB.set('tebakNegaraN',total); playSfx('click',1.0); draw(); });
+      q('tnStart').onclick=()=>{ playSfx('click',1.2); begin(); };
+      return;
+    }
+    if(phase==='end'){
+      el.innerHTML=`
+        <div class="card" style="text-align:center;">
+          <div style="font-size:15px;color:var(--muted);font-weight:700;">Selesai!</div>
+          <div style="font-size:44px;font-weight:800;font-family:var(--font-display);margin:6px 0;">${score}</div>
+          <div class="small-note" style="margin:0;">Benar ${right} dari ${deck.length} · Beruntun terbaik ${bestStreak}</div>
+          ${rec?'<div style="margin-top:10px;font-weight:800;color:var(--accent);">Skor tertinggi baru!</div>':''}
+        </div>
+        <div style="display:flex;gap:8px;margin-top:14px;">
+          <button class="btn" id="tnAgain" style="flex:1;">Main Lagi</button>
+          <button class="btn ghost" id="tnMenu" style="flex:1;">Ganti Jumlah</button>
+        </div>`;
+      q('tnAgain').onclick=()=>{ playSfx('swoosh',1.0); begin(); };
+      q('tnMenu').onclick=()=>{ phase='menu'; draw(); };
+      return;
+    }
+    const cur=deck[idx], done=picked!==null;
+    const optBtns=opts.map(o=>{
+      let st='';
+      if(done){
+        if(o[0]===cur[0]) st='background:#16a34a;border-color:#16a34a;color:#fff;';
+        else if(o[0]===picked) st='background:#dc2626;border-color:#dc2626;color:#fff;';
+        else st='opacity:.55;';
+      }
+      return `<button class="btn secondary" data-a="${_sxEsc(o[0])}" style="${st}" ${done?'disabled':''}>${_sxEsc(o[0])}</button>`;
+    }).join('');
+    el.innerHTML=`
+      <div class="stat-row"><div class="s"><b>${idx+1}/${deck.length}</b><span>Soal</span></div><div class="s"><b>${score}</b><span>Skor</span></div><div class="s"><b>${streak}</b><span>Beruntun</span></div></div>
+      <div class="card" style="text-align:center;padding:18px 12px;">
+        <div style="min-height:100px;display:flex;align-items:center;justify-content:center;"><span style="font-size:84px;line-height:1;">${cur[1]}</span></div>
+        <div class="small-note" style="margin:10px 0 0;">Bendera negara apakah ini?</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;">${optBtns}</div>
+      ${done?`<div class="result-box" style="margin-top:12px;">
+        <b>${picked===cur[0]?'Benar!':'Kurang tepat.'}</b> Ini bendera <b>${_sxEsc(cur[0])}</b>.<br>
+        <span style="font-size:13px;color:var(--muted);">Ibu kota: ${_sxEsc(cur[2])} · ${_sxEsc(cur[4])}<br>${_sxEsc(cur[5])}</span></div>
+        <button class="btn" id="tnNext" style="margin-top:12px;">${idx+1>=deck.length?'Lihat Hasil':'Lanjut'}</button>`:''}`;
+    el.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>answer(b.dataset.a));
+    const nx=q('tnNext'); if(nx) nx.onclick=()=>{ playSfx('swoosh',1.0); next(); };
   }
   draw();
 };
@@ -17760,10 +17889,31 @@ function drawAsciiArt(box){
   document.getElementById('asciiPngBtn').onclick = ()=>{
     if(!inp.value.trim()){ toast('Ketik teks dulu'); return; }
     const cv = asciiToCanvas(inp.value, S.ch); if(!cv) return;
-    const a = document.createElement('a');
-    a.download = 'ascii-art.png'; a.href = cv.toDataURL('image/png');
-    document.body.appendChild(a); a.click(); a.remove();
-    toast('🖼️ Gambar disimpan');
+    const fname = 'ascii-art-sanntolbox.png';
+    cv.toBlob(async (blob)=>{
+      if(!blob){ toast('Gagal membuat gambar'); return; }
+      try{
+        if(window.AndroidDownloader && typeof window.AndroidDownloader.saveBase64 === 'function'){
+          await AndroidDL(URL.createObjectURL(blob), fname, 'image/png');
+          toast('🖼️ Disimpan ke folder Download: '+fname);
+          return;
+        }
+        const file = new File([blob], fname, {type:'image/png'});
+        if(navigator.canShare && navigator.canShare({files:[file]})){
+          await navigator.share({files:[file], title:'ASCII Art'});
+          toast('🖼️ Pilih "Simpan ke Galeri/File" di menu yang muncul');
+          return;
+        }
+      }catch(e){
+        if(e && e.name==='AbortError') return;
+      }
+      const u = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = u; a.download = fname;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(()=>URL.revokeObjectURL(u), 4000);
+      toast('🖼️ Diunduh ke folder Download: '+fname);
+    }, 'image/png');
   };
   update();
 }

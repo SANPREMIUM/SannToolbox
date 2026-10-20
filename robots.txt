@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://sanpremium.github.io/SannToolbox/sitemap.xml
