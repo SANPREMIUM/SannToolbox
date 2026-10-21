@@ -6994,11 +6994,52 @@ function _pbAmt(base,k){
   if(k==='ml') return base>=1000 ? fmtNum(base/1000,2)+' liter' : fmtNum(base,0)+' ml';
   return base<1 ? 'kurang dari 1 pcs' : fmtNum(base,base<10?1:0)+' pcs';
 }
-function _pbPlan(items,budget,days,key){
+/* Porsi acuan per orang sekali makan (perkiraan umum). Dipakai kalau user tidak mengisi porsi sendiri. */
+const _pbStd=[
+  {re:/beras/,k:'g',v:90,home:{u:'gelas takar rice cooker',g:160}},
+  {re:/telur/,k:'pcs',v:0.5},
+  {re:/indomie|mie instan|mi instan|supermi|sedaap|mie|mi\b/,k:'pcs',v:0.5},
+  {re:/tempe|tahu/,k:'pcs',v:0.5},
+  {re:/sarden|kornet/,k:'pcs',v:0.25},
+  {re:/ayam|ikan|lele|bandeng|tongkol|daging|udang/,k:'g',v:60},
+  {re:/sayur|bayam|kangkung|wortel|\bkol\b|sawi|buncis/,k:'g',v:80},
+  {re:/gula/,k:'g',v:8,home:{u:'sendok makan',g:12}},
+  {re:/minyak/,k:'ml',v:15,home:{u:'sendok makan',g:13}},
+  {re:/garam/,k:'g',v:2,home:{u:'sendok teh',g:6}},
+  {re:/bawang/,k:'g',v:10},
+  {re:/kecap/,k:'ml',v:8,home:{u:'sendok makan',g:15}}
+];
+function _pbPortion(it,k){
+  const std=_pbStd.find(x=>x.k===k&&x.re.test(String(it.nm||'').toLowerCase()));
+  if(it.portion>0) return {v:it.portion,own:true,home:std&&std.home};
+  return std?{v:std.v,own:false,home:std.home}:null;
+}
+function _pbFrac(x){
+  const q=Math.round(x*4)/4; if(q<=0) return 'kurang dari ¼';
+  const w=Math.floor(q), f=q-w, fs={0:'',0.25:'¼',0.5:'½',0.75:'¾'}[f];
+  return (w?String(w):'')+(w&&fs?' ':'')+fs;
+}
+function _pbPor(base,k,home){
+  let t;
+  if(k==='pcs') t=fmtNum(base,base<1?2:1)+' pcs';
+  else t=fmtNum(base,base<10?1:0)+' '+k;
+  if(home&&base>0) t+=' (± '+_pbFrac(base/home.g)+' '+home.u+')';
+  return t;
+}
+function _pbPlan(items,budget,days,key,people,meals){
+  people=people||1; meals=meals||1;
   const P=_pbPkg[key];
-  let rows=items.filter(i=>i.qty>0&&i.price>0).map(i=>{ const b=_pbBase(i); return {it:i,b,w:P.w[i.prio]!=null?P.w[i.prio]:P.w.biasa,n:0}; });
+  const capMul=key==='boros'?1.25:1;
+  let rows=items.filter(i=>i.qty>0&&i.price>0).map(i=>{
+    const b=_pbBase(i); const s=_pbPortion(i,b.k);
+    const por=s?s.v:0, need=por>0?por*people*meals*days:0;
+    if(need>0){ const cap=Math.max(b.step,Math.ceil(need*capMul/b.step)*b.step); b.max=Math.min(b.max,cap); }
+    return {it:i,b,w:P.w[i.prio]!=null?P.w[i.prio]:P.w.biasa,n:0,por,need,home:s&&s.home,own:!!(s&&s.own)};
+  });
   if(rows.length && !rows.some(r=>r.w>0)) rows.forEach(r=>r.w=1);
   const T=budget*P.frac;
+  const sumW=rows.reduce((t,r)=>t+Math.max(0,r.w),0)||1;
+  rows.forEach(r=>{ r.nd=r.need>0?r.need:Math.max(r.b.step,(T*Math.max(r.w,0)/sumW)/r.b.up); });
   const cost=r=>r.n*r.b.step*r.b.up, stepCost=r=>r.b.step*r.b.up;
   const order={pokok:0,biasa:1,tambahan:2};
   let left=T; const skipped=[];
@@ -7013,7 +7054,7 @@ function _pbPlan(items,budget,days,key){
       if(r.w<=0||r.n===0) return;
       if(stepCost(r)>left+1e-9) return;
       if((r.n+1)*r.b.step>r.b.max+1e-9) return;
-      const sc=cost(r)/r.w;
+      const sc=(r.n*r.b.step/r.nd)/r.w;
       if(!best||sc<best.sc-1e-9) best={r,sc};
     });
     if(!best) break;
@@ -7021,7 +7062,13 @@ function _pbPlan(items,budget,days,key){
   }
   const total=rows.reduce((s,r)=>s+cost(r),0);
   const capped=rows.filter(r=>r.n>0&&(r.n+1)*r.b.step>r.b.max+1e-9);
-  return {key,P,rows,total,sisa:budget-total,sisaPct:budget>0?(budget-total)/budget*100:0,perDay:budget/days,skipped,capped,
+  rows.forEach(r=>{ r.cover=r.need>0?(r.n*r.b.step)/r.need:null; });
+  const known=rows.filter(r=>r.w>0&&r.need>0);
+  const short=known.filter(r=>r.cover<0.9);
+  const needCost=known.reduce((s,r)=>s+r.need*r.b.up,0);
+  const pokok=known.filter(r=>r.it.prio==='pokok');
+  const lasts=pokok.length?Math.floor(Math.min(...pokok.map(r=>(r.n*r.b.step)/(r.por*people*meals)))):null;
+  return {key,P,rows,total,sisa:budget-total,sisaPct:budget>0?(budget-total)/budget*100:0,perDay:budget/days,skipped,capped,short,needCost,lasts,
     amount:r=>r.n*r.b.step, cost, bought:rows.filter(r=>r.n>0)};
 }
 
@@ -7057,8 +7104,9 @@ TOOL_RENDERERS['plan-belanja'] = (el)=>{
         <div class="field" style="flex:1;"><label>Prioritas</label><select id="pbPrio"><option value="pokok">Pokok</option><option value="biasa" selected>Biasa</option><option value="tambahan">Pelengkap</option></select></div>
         <div class="field" style="flex:1;"><label>Maks. beli (opsional)</label><input type="number" inputmode="decimal" id="pbMax" placeholder="-"></div>
       </div>
+      <div class="field"><label>Porsi per orang sekali makan (opsional)</label><input type="number" inputmode="decimal" id="pbPor" placeholder="otomatis"></div>
       <button class="btn" id="pbAdd">➕ Tambah</button>
-      <div class="small-note">Contoh: Beras, 1 kg, Rp 15.000. Isi "Maks. beli" (sesuai satuan) kalau barang itu ada batas wajarnya, misalnya garam atau kopi.</div>
+      <div class="small-note">Contoh: Beras, 1 kg, Rp 15.000. Isi "Maks. beli" (sesuai satuan) kalau barang itu ada batas wajarnya, misalnya garam atau kopi. Kolom porsi boleh dikosongkan: untuk bahan umum (beras, telur, mie, tempe, minyak, dll) aplikasi memakai porsi wajar sendiri. Kalau diisi, pakai gram, ml, atau pcs (bukan kg atau liter).</div>
     </div>
     <div id="pbList"></div>
     <button class="btn" id="pbGo" style="margin-top:6px;">🧮 Buat Rencana Belanja</button>
@@ -7074,7 +7122,7 @@ TOOL_RENDERERS['plan-belanja'] = (el)=>{
     $('pbList').innerHTML = items.length ? `<div class="section-label">📝 Daftar barang (${items.length})</div>`+items.map(i=>`
       <div class="li-row">
         <div class="li-tx"><b>${escapeHtml(i.nm)}</b> <span style="color:var(--muted);">· ${fmtNum(i.qty,2)} ${(_pbUnits[i.unit]||_pbUnits.pcs).l}</span><br>
-        <span style="color:var(--muted);font-size:12px;">${_prRp(i.price)} · ${_pbPrio[i.prio]||'Biasa'}${i.max>0?' · maks '+fmtNum(i.max,2):''}</span></div>
+        <span style="color:var(--muted);font-size:12px;">${_prRp(i.price)} · ${_pbPrio[i.prio]||'Biasa'}${i.max>0?' · maks '+fmtNum(i.max,2):''}${i.portion>0?' · porsi '+fmtNum(i.portion,2):''}</span></div>
         <span class="li-del" data-del="${i.id}">✕</span>
       </div>`).join('') : `<div class="empty-state"><span class="em">🧺</span>Belum ada barang. Tambahkan dulu ya.</div>`;
     $('pbList').querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{ items=items.filter(x=>x.id!==+b.dataset.del); save(); drawList(); if(shown) drawOut(); });
@@ -7094,7 +7142,7 @@ TOOL_RENDERERS['plan-belanja'] = (el)=>{
       t=`Hampir seluruh uang dipakai dan barang pelengkap dapat jatah sama besar dengan kebutuhan pokok, jadi belanjanya paling banyak dan lengkap. Risikonya hampir tidak ada cadangan: ${sisaTxt}. Kalau harga naik atau ada keperluan mendadak, uangnya bisa kurang sebelum ${fmtNum(days,0)} hari selesai.`;
     }
     if(kurang.length) t+=` Belum kebeli karena uang tidak cukup: ${names(kurang)}.`;
-    if(p.capped.length) t+=` Sudah mentok di batas maksimum: ${names(p.capped)}.`;
+    if(p.capped.length) t+=` Sudah cukup sesuai kebutuhan atau mentok di batas maksimum, jadi tidak dibeli lebih: ${names(p.capped)}.`;
     if(!p.bought.length) t='Uangnya belum cukup untuk membeli satu pun barang di daftar. Tambah uang atau pilih barang yang lebih murah.';
     return t;
   }
@@ -7106,7 +7154,7 @@ TOOL_RENDERERS['plan-belanja'] = (el)=>{
   function drawOut(){
     const d=days();
     if(!(budget>0)){ $('pbOut').innerHTML=''; return; }
-    const plans={}; Object.keys(_pbPkg).forEach(k=>plans[k]=_pbPlan(items,budget,d,k));
+    const plans={}; Object.keys(_pbPkg).forEach(k=>plans[k]=_pbPlan(items,budget,d,k,people,meals));
     const p=plans[pkg];
     $('pbOut').innerHTML=`
       <div class="section-label">🎁 Pilih paket</div>
@@ -7117,16 +7165,17 @@ TOOL_RENDERERS['plan-belanja'] = (el)=>{
         <div class="s"><b>${_prRp(p.total/d/people)}</b><span>Per orang per hari</span></div>
       </div>
       <div class="small-note" style="margin:-4px 0 10px;text-align:center;">Per orang: ${_prRp(p.total/d/people/meals)} sekali makan · ${_prRp(p.total/d/people)} per hari · ${fmtNum(d*people*meals,0)} kali makan total</div>
+      ${p.short.length?`<div class="card" style="border:1px solid #f59e0b;"><b>⚠️ Uangnya belum cukup untuk ${people} orang × ${d} hari</b><div class="small-note" style="font-size:13px;color:var(--text);margin-top:6px;">Porsi yang masih kurang dari wajar: ${p.short.map(r=>escapeHtml(r.it.nm)).join(', ')}. Dengan daftar dan harga ini, kebutuhan wajarnya sekitar ${_prRp(p.needCost)}, sedangkan uangmu ${_prRp(budget)}.${p.lasts!=null?` Bahan pokok yang terbeli hanya cukup sekitar ${p.lasts} hari.`:''} Coba tambah uang, kurangi jumlah orang, lama, atau kali makan, atau ubah porsi tiap barang.</div></div>`:''}
       <div class="card"><b>Kenapa paket ${p.P.nm}?</b><div class="small-note" style="font-size:13px;color:var(--text);margin-top:6px;">${escapeHtml(reasonText(p,d))}</div></div>
       <div class="section-label">🛍️ Yang dibeli</div>
       ${p.bought.length ? p.bought.map(r=>{ const a=p.amount(r); return `
         <div class="li-row"><div class="li-tx"><b>${escapeHtml(r.it.nm)}</b> <span style="color:var(--accent);font-weight:700;">${_pbAmt(a,r.b.k)}</span><br>
-        <span style="color:var(--muted);font-size:12px;">${_prRp(p.cost(r))} · ≈ ${_pbAmt(a/d,r.b.k)} per hari · ≈ ${_pbAmt(a/d/people/meals,r.b.k)} per orang sekali makan · ${_pbPrio[r.it.prio]||'Biasa'}</span></div></div>`; }).join('') : `<div class="empty-state"><span class="em">🪙</span>Belum ada barang yang terbeli</div>`}
+        <span style="color:var(--muted);font-size:12px;">${_prRp(p.cost(r))} · ≈ ${_pbAmt(a/d,r.b.k)} per hari · ${(()=>{ const per=a/d/people/meals; const t='porsi ≈ '+_pbPor(per,r.b.k,r.home)+' per orang sekali makan'; if(r.cover!=null&&r.cover<0.9) return `<span style="color:#f59e0b;">⚠️ ${t}, idealnya ${_pbPor(r.por,r.b.k)}</span>`; return t; })()} · ${_pbPrio[r.it.prio]||'Biasa'}</span></div></div>`; }).join('') : `<div class="empty-state"><span class="em">🪙</span>Belum ada barang yang terbeli</div>`}
       ${p.skipped.length?`<div class="small-note">Tidak dibeli di paket ini: ${p.skipped.map(r=>escapeHtml(r.it.nm)).join(', ')}.</div>`:''}
       <div class="section-label">📊 Bandingkan paket</div>
       ${Object.keys(plans).map(k=>`<div class="li-row"><div class="li-tx"><b>${_pbPkg[k].em} ${_pbPkg[k].nm}</b><br><span style="color:var(--muted);font-size:12px;">Belanja ${_prRp(plans[k].total)} · sisa ${_prRp(plans[k].sisa)} (${fmtNum(plans[k].sisaPct,1)}%)</span></div></div>`).join('')}
       <button class="btn secondary" id="pbCopy" style="margin-top:8px;">📋 Salin rencana ${p.P.nm}</button>
-      <div class="small-note">Jumlah dihitung dari porsi uang per prioritas, bukan dari kebutuhan gizi. Cek lagi apakah jumlahnya masuk akal untuk keluargamu.</div>`;
+      <div class="small-note">Porsi acuan (misalnya beras 90 g, telur ½ butir per orang sekali makan) hanyalah perkiraan umum, bukan hitungan gizi. Kamu bisa isi porsi sendiri saat menambah barang. Takaran sendok dan gelas hanya pendekatan, jadi tidak perlu timbangan.</div>`;
     $('pbOut').querySelectorAll('[data-p]').forEach(c=>c.onclick=()=>{ pkg=c.dataset.p; save(); playSfx('click',1.0); drawOut(); });
     $('pbCopy').onclick=()=>_prCopy(planText(p,d));
   }
@@ -7140,8 +7189,8 @@ TOOL_RENDERERS['plan-belanja'] = (el)=>{
     const qty=_prNum($('pbQty').value), price=_prNum($('pbPr').value);
     if(!(qty>0)) return toast('Jumlah harus lebih dari 0');
     if(!(price>0)) return toast('Isi harganya dulu ya');
-    items.push({id:Date.now(),nm,qty,unit:$('pbUnit').value,price,prio:$('pbPrio').value,max:Math.max(0,_prNum($('pbMax').value))});
-    save(); $('pbNm').value=''; $('pbPr').value=''; $('pbMax').value=''; $('pbQty').value=1;
+    items.push({id:Date.now(),nm,qty,unit:$('pbUnit').value,price,prio:$('pbPrio').value,max:Math.max(0,_prNum($('pbMax').value)),portion:Math.max(0,_prNum($('pbPor').value))});
+    save(); $('pbNm').value=''; $('pbPr').value=''; $('pbMax').value=''; $('pbPor').value=''; $('pbQty').value=1;
     drawList(); if(shown) drawOut(); $('pbNm').focus();
   };
   $('pbNm').onkeydown=e=>{ if(e.key==='Enter') $('pbPr').focus(); };
