@@ -1485,15 +1485,22 @@ _bootStage('Menyiapkan tema…', 15);
 (function(){
   function setSt(t){ try{ var el=document.getElementById('bootSplash'); if(!el||el.dataset.hidden) return; var st=el.querySelector('.boot-status'); if(st) st.textContent=t; }catch(_){} }
   window.addEventListener('unhandledrejection', function(e){
-    var m=(e.reason&&e.reason.message)||String(e.reason||''); setSt('Error(p): '+m.slice(0,80));
+    var m=(e.reason&&e.reason.message)||String(e.reason||''); try{ console.warn('Promise error saat boot:', m); }catch(_){}
   });
   setTimeout(function(){
     var el=document.getElementById('bootSplash'); if(!el||el.dataset.hidden) return;
     var st=el.querySelector('.boot-status'); if(!st) return;
     if(true){
-      st.textContent='Macet: script utama tidak jalan. fb='+(typeof firebase)+' init='+(typeof init)+' online='+navigator.onLine;
+      st.style.cssText='opacity:1;font-size:12px;line-height:1.5;padding:0 14px;text-align:center';
+      st.textContent='Koneksi agak lambat, mohon tunggu sebentar…';
     }
   }, 7000);
+  setTimeout(function(){
+    var el=document.getElementById('bootSplash'); if(!el||el.dataset.hidden) return;
+    var st=el.querySelector('.boot-status'); if(!st) return;
+    st.style.cssText='opacity:1;font-size:12px;line-height:1.5;padding:0 14px;text-align:center';
+    st.textContent='Masih memuat… kalau terlalu lama, tutup lalu buka lagi aplikasinya.';
+  }, 20000);
 })();
 /* Diagnosa: versi build + status kalau boot macet >7 detik (screenshot ini kalau masih mentok) */
 window._SANN_BUILD='b2-20261020';
@@ -1501,11 +1508,7 @@ setTimeout(function(){
   try{
     var el=document.getElementById('bootSplash'); if(!el||el.dataset.hidden) return;
     var st=el.querySelector('.boot-status'); if(!st) return;
-    if(true){
-      st.style.cssText='opacity:1;font-size:11px;line-height:1.5;padding:0 14px;text-align:center';
-      st.textContent=window._SANN_BUILD+' | script utama: '+(window._mainRan?'jalan':'TIDAK jalan')+
-        ' | firebase: '+(typeof firebase!=='undefined'?'ada':'tidak')+' | online: '+navigator.onLine;
-    }
+    try{ console.info('Boot >7 detik:', window._SANN_BUILD, 'mainRan=', !!window._mainRan, 'firebase=', typeof firebase, 'online=', navigator.onLine); }catch(_){}
   }catch(_){}
 },7000);
 /* Buang service worker & cache lama sekali saja per build, supaya HP tidak nyangkut versi lama */
@@ -1894,8 +1897,33 @@ function playSfx(name, pitch){
 document.addEventListener('pointerdown', function(e){
   try{ if(e.target.closest && e.target.closest('.back-link,.gate-back')) playSfx('hintdown', 1.15); }catch(_){}
 }, true);
+/* Salin teks ke clipboard dengan beberapa lapis cadangan. Mengembalikan Promise<boolean>:
+   true = BENAR-BENAR tersalin, false = semua cara gagal (jangan pura-pura sukses). */
+function sannCopyText(txt){
+  txt = String(txt == null ? '' : txt);
+  function legacy(){
+    let ta = null;
+    try{
+      ta = document.createElement('textarea');
+      ta.value = txt;
+      ta.setAttribute('readonly','');
+      ta.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;padding:0;border:0;opacity:0;font-size:16px;';
+      document.body.appendChild(ta);
+      ta.focus({preventScroll:true});
+      ta.select();
+      ta.setSelectionRange(0, txt.length);
+      const ok = document.execCommand('copy');
+      return !!ok;
+    }catch(e){ return false; }
+    finally{ if(ta && ta.parentNode) ta.parentNode.removeChild(ta); }
+  }
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    return navigator.clipboard.writeText(txt).then(()=>true).catch(()=>legacy());
+  }
+  return Promise.resolve(legacy());
+}
 function copyText(txt){
-  navigator.clipboard && navigator.clipboard.writeText(txt).then(()=>toast('Disalin ke clipboard ✅')).catch(()=>toast('Gagal menyalin'));
+  sannCopyText(txt).then(ok=>toast(ok ? 'Disalin ke clipboard ✅' : 'Gagal menyalin'));
 }
 function fmtNum(n, d=2){ if(isNaN(n)) return '-'; return Number(n).toLocaleString('id-ID',{maximumFractionDigits:d}); }
 function pad(n){ return n.toString().padStart(2,'0'); }
@@ -2456,6 +2484,7 @@ async function fsCreateUser(username, score, email){
     score: score || 0,
     isAdmin: false,
     email: email || null,
+    uid: (auth && auth.currentUser) ? auth.currentUser.uid : null, // mengikat akun ini ke pemilik Auth-nya (dicek Firestore Rules)
     avatar: 'avatar-1',
     ownedAvatars: STARTER_AVATARS,
     border: 'none',
@@ -2806,7 +2835,7 @@ async function fsHeartbeat(){
     await db.collection('users').doc(me).update({
       lastActive: firebase.firestore.FieldValue.serverTimestamp()
     });
-  }catch(e){ /* diamkan, tidak kritikal */ }
+  }catch(e){ console.warn('Heartbeat gagal (status online):', e && e.code ? e.code : e); }
 }
 function onVisibilityChangePresence(){
   if(document.visibilityState === 'visible') fsHeartbeat();
@@ -2850,7 +2879,7 @@ async function registerPushToken(){
       fcmTokens: firebase.firestore.FieldValue.arrayUnion(t)
     });
     _pushToken = t;
-  }catch(e){ /* diamkan, dicoba lagi saat buka app berikutnya */ }
+  }catch(e){ console.warn('Daftar token push gagal:', e && e.code ? e.code : e); /* dicoba lagi saat buka app berikutnya */ }
 }
 async function unregisterPushToken(user){
   const t = _pushToken || getNativePushToken();
@@ -3087,6 +3116,19 @@ async function ensureUidMapping(username){
       username: username, usernameLower: username.toLowerCase()
     }, {merge:true});
   }catch(e){ console.error('Gagal simpan mapping uid->username:', e); }
+  await fsClaimUid(username);
+}
+/* Akun lama belum punya field 'uid' di dokumen users. Begitu pemiliknya
+   login, ikat dokumennya ke uid-nya (sekali saja). Setelah terikat, Firestore
+   Rules hanya mengizinkan uid itu yang mengubah/mengklaim akun tersebut. */
+async function fsClaimUid(username){
+  try{
+    if(!auth.currentUser || !username) return;
+    const ref = db.collection('users').doc(username);
+    const snap = await ref.get();
+    if(!snap.exists || snap.data().uid) return;
+    await ref.set({ uid: auth.currentUser.uid }, {merge:true});
+  }catch(e){ console.warn('Gagal mengikat uid ke akun:', e && e.code ? e.code : e); }
 }
 
 async function initAuthGate(){
@@ -3106,6 +3148,12 @@ async function initAuthGate(){
   // Ini mencegah UI "terasa login" padahal token Firebase-nya sudah tidak valid.
   _bootStage('Menghubungkan akun…', 65);
   auth.onAuthStateChanged(async (user)=>{
+    // Baca sesi TERBARU tiap listener jalan (bukan nilai saat boot), supaya
+    // login/daftar baru tidak dianggap "belum login" lalu sesinya terhapus.
+    const savedUser = localStorage.getItem('sann_session_user');
+    // Lagi proses daftar/login: Firebase sudah menandai user masuk, tapi sesi
+    // lokal belum disimpan. Abaikan dulu — doLogin/doRegister yang lanjutkan lewat enterApp().
+    if(user && !savedUser && _gateLoading) return;
     if(user && savedUser){
       if(!localStorage.getItem('sann_progress_owner')) localStorage.setItem('sann_progress_owner', savedUser);
       await ensureUidMapping(savedUser);
@@ -3203,7 +3251,7 @@ async function drawGate(msg){
       <div class="gate-title sm">Buat Akun Baru</div>
       <div class="gate-sub">Gratis dan tersimpan di cloud</div>
       <div class="field"><label>Username</label><input type="text" id="gtRegUser" placeholder="Pilih username" autocomplete="username"></div>
-      <div class="field"><label>Email</label><input type="text" id="gtRegEmail" placeholder="Untuk reset password kalau lupa" autocomplete="email"></div>
+      <div class="field"><label>Email <span style="font-weight:400;opacity:.7;">(opsional)</span></label><input type="text" id="gtRegEmail" placeholder="Untuk reset password kalau lupa" autocomplete="email"></div>
       <div class="field"><label>Password</label><div class="pw-wrap"><input type="password" id="gtRegPass" placeholder="Buat password" autocomplete="new-password"><button type="button" class="pw-eye" onclick="gatePwToggle(this)">Lihat</button></div></div>
       <div class="field"><label>Ulang Password</label><div class="pw-wrap"><input type="password" id="gtRegPass2" placeholder="Ketik ulang password" autocomplete="new-password"><button type="button" class="pw-eye" onclick="gatePwToggle(this)">Lihat</button></div></div>
       ${msg?`<div class="gate-error">${msg}</div>`:''}
@@ -3296,9 +3344,9 @@ async function doRegister(){
   const email = document.getElementById('gtRegEmail').value.trim();
   const pw = document.getElementById('gtRegPass').value;
   const pw2 = document.getElementById('gtRegPass2').value;
-  if(!u || !email || !pw || !pw2){ drawGate('Semua kolom wajib diisi.'); return; }
+  if(!u || !pw || !pw2){ drawGate('Username dan password wajib diisi.'); return; }
   if(!/^[a-zA-Z0-9_]{3,20}$/.test(u)){ drawGate('Username 3-20 karakter, hanya huruf/angka/underscore.'); return; }
-  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ drawGate('Format email tidak valid.'); return; }
+  if(email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ drawGate('Format email tidak valid.'); return; }
   if(pw.length < 6){ drawGate('Password minimal 6 karakter.'); return; }
   if(pw !== pw2){ drawGate('Password dan ulang password tidak sama.'); return; }
 
@@ -3311,7 +3359,7 @@ async function doRegister(){
     if(existing){ drawGate('Username sudah dipakai, pilih yang lain.'); return; }
 
     const cred = await auth.createUserWithEmailAndPassword(usernameToPseudoEmail(u), pw);
-    try{ await cred.user.verifyBeforeUpdateEmail(email); }catch(e){ console.error('Gagal set email asli untuk reset password:', e); }
+    if(email){ try{ await cred.user.verifyBeforeUpdateEmail(email); }catch(e){ console.error('Gagal set email asli untuk reset password:', e); } }
     resetLocalProgress(); // akun baru mulai dari nol, jangan warisi XP/level akun lain di HP ini
     try{ localStorage.setItem('sann_progress_owner', u); }catch(e){}
     const existingXP = 0;
@@ -3362,9 +3410,17 @@ async function doForgotPassword(){
 function enterApp(){
   _pendingAdminGate = false;
   document.getElementById('gateOverlay').style.display = 'none';
-  startPresence();
-  startChatBadgeListener();
   render();
+  // Samakan dengan alur onAuthStateChanged: buat mapping uid->username DULU
+  // (dipakai Firestore Rules), baru nyalakan presence & semua listener.
+  // Tanpa ini user yang baru daftar/login belum bisa chat, ganti avatar/border,
+  // dan notif update baru masuk setelah reload.
+  const _me = currentUsername();
+  ensureUidMapping(_me).finally(()=>{
+    startPresence();
+    startChatBadgeListener();
+    startUpdateBadgeListener();
+  });
 }
 
 async function logout(){
@@ -4176,6 +4232,13 @@ function renderAdminPanel(){
       <div><b>🔄 Sinkron Jumlah Pengguna</b><div style="font-size:11px;color:var(--muted);">Update angka "Jumlah Pengguna" di layar login supaya sesuai total user asli sekarang.</div></div>
       <button class="btn sm" id="apSyncBtn" onclick="syncPublicUserCount()" style="flex-shrink:0;">Sinkron</button>
     </div>
+    <div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+      <div><b>💾 Backup Data User</b><div style="font-size:11px;color:var(--muted);">Simpan semua data user (XP, level, streak, dll) jadi file .json. Berisi email &amp; token, simpan baik-baik.</div></div>
+      <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;">
+        <button class="btn sm" id="apBackupBtn" onclick="backupAllUsers('file')">Backup</button>
+        <button class="btn secondary sm" id="apBackupCopyBtn" onclick="backupAllUsers('copy')">Salin</button>
+      </div>
+    </div>
     <div class="section-label">Semua Pengguna Terdaftar</div>
     <div id="apList"><div class="result-box"><div class="lbl">Memuat data...</div></div></div>
   `;
@@ -4193,6 +4256,42 @@ async function syncPublicUserCount(){
     toast('Gagal sinkron, cek koneksi / rules Firestore');
   }finally{
     if(btn){ btn.disabled = false; btn.textContent = 'Sinkron'; }
+  }
+}
+
+/* Backup semua dokumen koleksi 'users' (admin). mode 'file' = bagikan/unduh file .json,
+   mode 'copy' = salin teks JSON ke clipboard (cadangan kalau unduh file tidak jalan di HP/APK). */
+async function backupAllUsers(mode){
+  if(!isAdminSession()) return;
+  const b1 = document.getElementById('apBackupBtn'), b2 = document.getElementById('apBackupCopyBtn');
+  if(b1) b1.disabled = true; if(b2) b2.disabled = true;
+  try{
+    const snap = await db.collection('users').get();
+    const data = {};
+    snap.forEach(d=>{ data[d.id] = d.data(); });
+    const json = JSON.stringify(data, null, 1);
+    const name = 'users-backup-' + new Date().toISOString().slice(0,10) + '.json';
+    if(mode === 'copy'){
+      const okCopy = await sannCopyText(json);
+      toast(okCopy ? 'Tersalin: '+snap.size+' user. Tempel ke catatan/chat penyimpanan.' : 'Gagal menyalin. Coba tombol Backup (bagikan file).');
+      return;
+    }
+    const file = new File([json], name, {type:'application/json'});
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      await navigator.share({files:[file], title:name});
+      toast('Backup '+snap.size+' user siap disimpan.');
+      return;
+    }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(file); a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
+    toast('Backup '+snap.size+' user diunduh. Cek folder Download.');
+  }catch(e){
+    if(e && e.name === 'AbortError') toast('Backup dibatalkan');
+    else{ console.error('Backup gagal:', e); toast('Backup gagal: '+(e && e.message ? e.message : 'cek koneksi / rules')); }
+  }finally{
+    if(b1) b1.disabled = false; if(b2) b2.disabled = false;
   }
 }
 
@@ -5486,6 +5585,7 @@ function renderToolWrap(id){
   `;
 }
 function afterRender(){
+  if(currentPage !== 'tool-sann-ai' && typeof closeSannAIFull === 'function') closeSannAIFull();
   if(!currentPage.startsWith('chat-')) stopChatListener();
   if(currentPage !== 'leaderboard') stopLeaderboardListener();
   if(!currentPage.startsWith('user-')) stopUserProfileListener();
@@ -9740,7 +9840,9 @@ TOOL_RENDERERS['backup'] = (el)=>{
       <b style="font-size:13px;">📋 Kode Backup (disarankan)</b>
       <p style="font-size:12px;color:var(--muted);margin:4px 0 8px;">Tekan tombol di bawah buat nyalin semua data jadi kode teks. Tempel kode itu di app/HP tujuan lewat kotak "Impor" di bawah.</p>
       <button class="btn" id="bkCopyCode">📋 Salin Kode Backup</button>
-      <textarea id="bkCodeOut" readonly style="width:100%;height:70px;margin-top:8px;font-size:10px;font-family:monospace;opacity:.8;" placeholder="Kode backup akan muncul di sini setelah ditekan tombol di atas..."></textarea>
+      <button class="btn secondary" id="bkShareCode" style="margin-top:8px;">📤 Bagikan Kode (simpan ke catatan/chat)</button>
+      <textarea id="bkCodeOut" readonly onfocus="this.select()" style="width:100%;height:70px;margin-top:8px;font-size:10px;font-family:monospace;opacity:.8;" placeholder="Kode backup akan muncul di sini setelah ditekan tombol di atas..."></textarea>
+      <div id="bkCopyNote" style="font-size:11.5px;color:var(--muted);margin-top:6px;"></div>
       <div class="divider"></div>
       <b style="font-size:13px;">📥 Impor dari Kode</b>
       <p style="font-size:12px;color:var(--muted);margin:4px 0 8px;">Tempel kode backup yang pernah kamu salin di sini.</p>
@@ -9768,15 +9870,29 @@ TOOL_RENDERERS['backup'] = (el)=>{
   document.getElementById('bkCopyCode').onclick = async ()=>{
     const code = JSON.stringify(collectAll());
     const out = document.getElementById('bkCodeOut');
+    const note = document.getElementById('bkCopyNote');
     out.value = code;
-    try{
-      await navigator.clipboard.writeText(code);
+    const ok = await sannCopyText(code);
+    if(ok){
+      note.textContent = 'Tersalin ✅ (' + code.length.toLocaleString('id-ID') + ' karakter). Tempel di HP/app tujuan lewat kotak Impor.';
       toast('Kode backup disalin ke clipboard 📋');
-    }catch(e){
-      out.focus(); out.select();
-      try{ document.execCommand('copy'); toast('Kode backup disalin ke clipboard 📋'); }
-      catch(e2){ toast('Gagal auto-salin, silakan salin manual dari kotak di bawah'); }
+    }else{
+      // Semua cara salin otomatis diblokir perangkat/browser: pilih semua teks supaya tinggal Salin manual
+      out.removeAttribute('readonly');
+      out.focus(); out.select(); out.setSelectionRange(0, code.length);
+      note.textContent = 'Salin otomatis diblokir di perangkat ini. Kode sudah terpilih semua: tekan lama di kotak lalu pilih "Salin", atau pakai tombol Bagikan di atas.';
+      toast('Gagal auto-salin — kode sudah dipilih, salin manual ya');
     }
+  };
+  document.getElementById('bkShareCode').onclick = async ()=>{
+    const code = JSON.stringify(collectAll());
+    const out = document.getElementById('bkCodeOut');
+    out.value = code;
+    if(navigator.share){
+      try{ await navigator.share({title:'SANN Toolbox Backup', text: code}); return; }
+      catch(e){ if(e && e.name === 'AbortError') return; }
+    }
+    toast('Fitur Bagikan tidak tersedia di sini. Coba tombol Salin.');
   };
   document.getElementById('bkImportCode').onclick = ()=>{
     const txt = document.getElementById('bkImportText').value.trim();
@@ -13645,47 +13761,211 @@ TOOL_RENDERERS['fakta-hewan'] = renderAnimalFacts;
 const SANN_AI_URL = 'https://sann-proxy-bf1y.vercel.app/api/chat';
 let sannAIHistory = [];
 let sannAIBusy = false;
+/* Tampilan SANN AI: layar penuh (menutup topbar & bottom nav), dibuat di <body>
+   dan otomatis dibuang lagi oleh afterRender() begitu pindah halaman. */
+function closeSannAIFull(){
+  const r = document.getElementById('aiFull');
+  if(r){ try{ if(r._cleanup) r._cleanup(); }catch(e){} r.remove(); }
+}
 TOOL_RENDERERS['sann-ai'] = function(el){
-  el.innerHTML = `
+  closeSannAIFull();
+  if(el) el.innerHTML = '';
+  const tool = findTool('sann-ai');
+  const backCat = (tool && tool.cat) ? tool.cat : 'toolbox';
+  const root = document.createElement('div');
+  root.id = 'aiFull';
+  root.innerHTML = `
     <style>
-      #aiMsgs{height:calc(100vh - 430px);height:calc(100dvh - 430px);min-height:340px;overflow-y:auto;padding:4px 2px;display:flex;flex-direction:column;gap:10px;}
-      .ai-b{padding:12px 16px;border-radius:18px;max-width:90%;white-space:pre-wrap;word-break:break-word;line-height:1.55;font-size:15.5px;}
-      .ai-b.me{align-self:flex-end;background:linear-gradient(135deg,var(--accent),var(--accent2));color:var(--on-accent);border-bottom-right-radius:5px;font-weight:600;}
-      .ai-b.bot{align-self:flex-start;background:var(--surface2);border:1px solid var(--border);border-bottom-left-radius:5px;}
-      .ai-b.wait{color:var(--muted);font-style:italic;}
-      #aiForm{display:flex;gap:8px;align-items:flex-end;margin-top:10px;}
-      #aiInput{flex:1;resize:none;max-height:110px;}
+      #aiFull{position:fixed;left:0;right:0;top:0;height:100vh;height:100dvh;z-index:2000;display:flex;flex-direction:column;background:var(--bg);color:var(--text);font-family:var(--font-body);overflow:hidden;}
+      #aiFull::before{content:'';position:absolute;inset:0;pointer-events:none;background:radial-gradient(110% 55% at 50% -8%,color-mix(in srgb,var(--accent) 24%,transparent),transparent 62%),radial-gradient(70% 40% at 100% 100%,color-mix(in srgb,var(--accent-end,var(--accent2)) 14%,transparent),transparent 70%);}
+      #aiFull > *{position:relative;}
+      .aif-head{display:flex;align-items:center;gap:10px;padding:calc(10px + env(safe-area-inset-top,0px)) 12px 10px;border-bottom:1px solid color-mix(in srgb,var(--border) 70%,transparent);background:color-mix(in srgb,var(--bg) 78%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);}
+      .aif-btn{width:40px;height:40px;border-radius:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:color-mix(in srgb,var(--accent) 8%,var(--surface2));border:1px solid color-mix(in srgb,var(--accent) 20%,var(--border));color:var(--text);cursor:pointer;font-size:12px;font-weight:700;}
+      .aif-btn:active{transform:scale(.94);}
+      .aif-btn svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+      .aif-ic{width:40px;height:40px;border-radius:13px;flex-shrink:0;display:flex;align-items:center;justify-content:center;overflow:hidden;font-size:22px;background:linear-gradient(135deg,var(--accent),var(--accent2));box-shadow:0 4px 12px -3px color-mix(in srgb,var(--accent) 55%,transparent);}
+      .aif-ic img{width:100%;height:100%;object-fit:cover;}
+      .aif-tt{flex:1;min-width:0;}
+      .aif-tt b{display:block;font-family:var(--font-display);font-size:17px;line-height:1.15;}
+      .aif-tt span{display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--muted);margin-top:2px;}
+      .aif-tt span i{width:7px;height:7px;border-radius:50%;background:#34d399;box-shadow:0 0 0 3px color-mix(in srgb,#34d399 25%,transparent);}
+      #aiMsgs{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:16px 12px 8px;display:flex;flex-direction:column;gap:14px;scroll-behavior:smooth;}
+      .aif-row{display:flex;gap:8px;align-items:flex-end;max-width:100%;animation:aifIn .22s ease-out;}
+      .aif-row.me{justify-content:flex-end;}
+      .aif-av{width:30px;height:30px;border-radius:10px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:15px;overflow:hidden;background:linear-gradient(135deg,var(--accent),var(--accent2));}
+      .aif-av img{width:100%;height:100%;object-fit:cover;}
+      .aif-col{display:flex;flex-direction:column;min-width:0;max-width:84%;}
+      .ai-b{padding:11px 15px;border-radius:20px;white-space:pre-wrap;word-break:break-word;line-height:1.58;font-size:15.5px;}
+      .ai-b.me{background:linear-gradient(135deg,var(--accent),var(--accent2));color:var(--on-accent);border-bottom-right-radius:6px;font-weight:600;box-shadow:0 6px 16px -8px color-mix(in srgb,var(--accent) 70%,transparent);}
+      .ai-b.bot{background:var(--surface2);border:1px solid var(--border);border-bottom-left-radius:6px;}
+      .ai-b.err{border-color:color-mix(in srgb,var(--bad,#f87171) 55%,var(--border));}
+      .ai-b pre{margin:8px 0 2px;padding:10px 12px;border-radius:12px;background:color-mix(in srgb,var(--bg) 70%,#000);border:1px solid var(--border);font-family:var(--font-mono);font-size:13px;white-space:pre-wrap;overflow-x:auto;}
+      .ai-b code{font-family:var(--font-mono);font-size:13.5px;padding:1px 6px;border-radius:7px;background:color-mix(in srgb,var(--accent) 14%,transparent);}
+      .ai-b pre code{padding:0;background:none;}
+      .aif-copy{align-self:flex-start;margin:4px 0 0 6px;font-size:11.5px;color:var(--muted);cursor:pointer;padding:2px 6px;border-radius:8px;}
+      .aif-copy:active{background:color-mix(in srgb,var(--accent) 14%,transparent);}
+      .aif-dots{display:flex;gap:5px;padding:4px 2px;}
+      .aif-dots i{width:8px;height:8px;border-radius:50%;background:var(--muted);animation:aifDot 1.1s infinite ease-in-out;}
+      .aif-dots i:nth-child(2){animation-delay:.16s;}
+      .aif-dots i:nth-child(3){animation-delay:.32s;}
+      .aif-hero{margin:auto;text-align:center;padding:10px 18px 24px;max-width:420px;animation:aifIn .3s ease-out;}
+      .aif-hero .big{width:84px;height:84px;margin:0 auto 14px;border-radius:26px;display:flex;align-items:center;justify-content:center;font-size:42px;overflow:hidden;background:linear-gradient(135deg,var(--accent),var(--accent2));box-shadow:0 14px 34px -10px color-mix(in srgb,var(--accent) 65%,transparent);}
+      .aif-hero .big img{width:100%;height:100%;object-fit:cover;}
+      .aif-hero h2{font-family:var(--font-display);font-size:23px;margin:0 0 6px;}
+      .aif-hero p{margin:0 0 18px;color:var(--muted);font-size:14.5px;line-height:1.5;}
+      .aif-chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;}
+      .aif-chip{padding:9px 14px;border-radius:999px;font-size:13.5px;font-weight:600;cursor:pointer;background:color-mix(in srgb,var(--accent) 9%,var(--surface2));border:1px solid color-mix(in srgb,var(--accent) 24%,var(--border));color:var(--text);}
+      .aif-chip:active{transform:scale(.96);}
+      .aif-bar{padding:8px 12px calc(10px + env(safe-area-inset-bottom,0px));background:linear-gradient(180deg,transparent,color-mix(in srgb,var(--bg) 88%,transparent) 30%);}
+      .aif-box{display:flex;align-items:flex-end;gap:8px;padding:6px 6px 6px 16px;border-radius:26px;background:var(--surface2);border:1px solid color-mix(in srgb,var(--accent) 22%,var(--border));box-shadow:0 8px 24px -14px rgba(0,0,0,.6);}
+      .aif-box:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 18%,transparent);}
+      #aiInput{flex:1;min-width:0;resize:none;border:0;outline:0;background:transparent;color:var(--text);font:inherit;font-size:15.5px;line-height:1.45;padding:9px 0;max-height:130px;}
+      #aiInput::placeholder{color:var(--muted);}
+      #aiSend{width:44px;height:44px;border-radius:50%;border:0;flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--on-accent);background:linear-gradient(135deg,var(--accent),var(--accent2));box-shadow:0 6px 16px -6px color-mix(in srgb,var(--accent) 70%,transparent);transition:.15s;}
+      #aiSend svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2.3;stroke-linecap:round;stroke-linejoin:round;}
+      #aiSend:active{transform:scale(.92);}
+      #aiSend:disabled{opacity:.45;box-shadow:none;}
+      .aif-note{text-align:center;font-size:10.5px;color:var(--muted);margin-top:6px;opacity:.8;}
+      @keyframes aifIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+      @keyframes aifDot{0%,80%,100%{opacity:.25;transform:translateY(0);}40%{opacity:1;transform:translateY(-4px);}}
     </style>
-    <div class="card"><div id="aiMsgs"></div></div>
-    <div id="aiForm">
-      <textarea id="aiInput" rows="1" maxlength="500" placeholder="Tanya SANN AI..."></textarea>
-      <button class="btn sm" id="aiSend" style="padding:13px 18px;">Kirim</button>
+    <div class="aif-head">
+      <div class="aif-btn" id="aiBack" aria-label="Kembali"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></div>
+      <div class="aif-ic">${icoImg('sann-ai','🤖')}</div>
+      <div class="aif-tt"><b>SANN AI</b><span><i></i>Siap membantu</span></div>
+      <div class="aif-btn" id="aiClear" aria-label="Hapus obrolan"><svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12M9 7V4h6v3"/></svg></div>
     </div>
-    <div style="text-align:center;margin-top:10px;"><span id="aiClear" style="font-size:12px;color:var(--muted);cursor:pointer;">Hapus obrolan</span></div>
+    <div id="aiMsgs"></div>
+    <div class="aif-bar">
+      <div class="aif-box">
+        <textarea id="aiInput" rows="1" maxlength="500" placeholder="Tanya SANN AI..."></textarea>
+        <button id="aiSend" aria-label="Kirim"><svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
+      </div>
+      <div class="aif-note">SANN AI bisa salah, cek lagi info pentingnya.</div>
+    </div>
   `;
-  const box = document.getElementById('aiMsgs');
-  const input = document.getElementById('aiInput');
+  document.body.appendChild(root);
+
+  const box = root.querySelector('#aiMsgs');
+  const input = root.querySelector('#aiInput');
+  const sendBtn = root.querySelector('#aiSend');
+  const clearBtn = root.querySelector('#aiClear');
+
+  /* kunci scroll halaman di belakang + ikuti tinggi keyboard HP */
+  const prevOverflow = document.body.style.overflow;
+  document.body.style.overflow = 'hidden';
+  const vv = window.visualViewport;
+  function toBottom(smooth){ box.scrollTo({top: box.scrollHeight, behavior: smooth ? 'smooth' : 'auto'}); }
+  function fit(){
+    if(!vv) return;
+    root.style.height = vv.height + 'px';
+    root.style.top = vv.offsetTop + 'px';
+    toBottom(false);
+  }
+  if(vv){ vv.addEventListener('resize', fit); vv.addEventListener('scroll', fit); fit(); }
+  root._cleanup = ()=>{
+    document.body.style.overflow = prevOverflow;
+    if(vv){ vv.removeEventListener('resize', fit); vv.removeEventListener('scroll', fit); }
+  };
+
+  /* format ringan: **tebal**, `kode`, ```blok kode```, bullet — semua lewat escapeHtml dulu */
+  function fmt(t){
+    let h = escapeHtml(t);
+    h = h.replace(/```(?:\w+)?\n?([\s\S]*?)```/g, (m,c)=>'<pre><code>'+c.replace(/\n$/,'')+'</code></pre>');
+    h = h.replace(/`([^`\n]+)`/g, '<code>$1</code>');
+    h = h.replace(/\*\*([^*\n]+)\*\*/g, '<b>$1</b>');
+    h = h.replace(/^[ \t]*[*-][ \t]+/gm, '• ');
+    return h;
+  }
+  function copyText(txt){
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      return navigator.clipboard.writeText(txt);
+    }
+    return new Promise((res,rej)=>{
+      try{
+        const ta = document.createElement('textarea'); ta.value = txt; ta.style.position='fixed'; ta.style.opacity='0';
+        document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); res();
+      }catch(e){ rej(e); }
+    });
+  }
+
+  function addRow(role){
+    const row = document.createElement('div');
+    row.className = 'aif-row ' + (role==='user' ? 'me' : 'bot');
+    const col = document.createElement('div');
+    col.className = 'aif-col';
+    if(role !== 'user'){
+      const av = document.createElement('div'); av.className = 'aif-av'; av.innerHTML = icoImg('sann-ai','🤖');
+      row.appendChild(av);
+    }
+    row.appendChild(col);
+    box.appendChild(row);
+    return {row, col};
+  }
   function bubble(role, text, extra){
+    const hero = box.querySelector('.aif-hero'); if(hero) hero.remove();
+    const {col} = addRow(role);
     const d = document.createElement('div');
     d.className = 'ai-b ' + (role==='user' ? 'me' : 'bot') + (extra ? ' '+extra : '');
-    d.textContent = text;
-    box.appendChild(d);
-    box.scrollTop = box.scrollHeight;
+    if(role === 'user') d.textContent = text; else d.innerHTML = fmt(text);
+    col.appendChild(d);
+    if(role !== 'user' && !extra) addCopy(col, text);
+    toBottom(true);
     return d;
+  }
+  function addCopy(col, text){
+    const c = document.createElement('div');
+    c.className = 'aif-copy'; c.textContent = 'Salin';
+    c.onclick = ()=>{ copyText(text).then(()=>{ c.textContent = 'Tersalin ✓'; setTimeout(()=>{ c.textContent = 'Salin'; }, 1600); }).catch(()=>{ c.textContent = 'Gagal menyalin'; }); };
+    col.appendChild(c);
+  }
+  function typing(){
+    const hero = box.querySelector('.aif-hero'); if(hero) hero.remove();
+    const {row, col} = addRow('ai');
+    const d = document.createElement('div');
+    d.className = 'ai-b bot';
+    d.innerHTML = '<div class="aif-dots"><i></i><i></i><i></i></div>';
+    col.appendChild(d);
+    toBottom(true);
+    return {row, col, d};
   }
   function drawAll(){
     box.innerHTML = '';
-    bubble('ai', 'Halo! Aku SANN AI 👋 Tanya soal fitur Toolbox atau ngobrol santai aja.');
+    if(!sannAIHistory.length){
+      box.innerHTML = `
+        <div class="aif-hero">
+          <div class="big">${icoImg('sann-ai','🤖')}</div>
+          <h2>Halo! Aku SANN AI 👋</h2>
+          <p>Tanya soal fitur Toolbox atau ngobrol santai aja. Aku siap bantu.</p>
+          <div class="aif-chips">
+            <div class="aif-chip" data-q="Fitur apa saja yang ada di SANN Toolbox?">Fitur Toolbox</div>
+            <div class="aif-chip" data-q="Gimana cara dapat XP dan naik level?">Cara dapat XP</div>
+            <div class="aif-chip" data-q="Ceritakan satu fakta unik yang menarik.">Fakta unik</div>
+            <div class="aif-chip" data-q="Rekomendasikan game seru di Toolbox.">Rekomendasi game</div>
+          </div>
+        </div>`;
+      box.querySelectorAll('.aif-chip').forEach(c=>{ c.onclick = ()=> send(c.dataset.q); });
+      return;
+    }
     sannAIHistory.forEach(m => bubble(m.role, m.text));
+    toBottom(false);
   }
-  async function send(){
-    const text = input.value.trim();
+  function setBusy(b){ sannAIBusy = b; sendBtn.disabled = b; }
+  function autoGrow(){ input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight, 130) + 'px'; }
+
+  async function send(preset){
+    const text = (typeof preset === 'string' ? preset : input.value).trim();
     if(!text || sannAIBusy) return;
-    sannAIBusy = true;
-    input.value = '';
+    setBusy(true);
+    input.value = ''; autoGrow();
     bubble('user', text);
     sannAIHistory.push({role:'user', text});
-    const wait = bubble('ai', 'Mengetik...', 'wait');
+    const w = typing();
+    function fail(msg){
+      sannAIHistory.pop();
+      w.d.classList.add('err');
+      w.d.textContent = msg;
+    }
     try{
       const r = await fetch(SANN_AI_URL, {
         method:'POST',
@@ -13694,25 +13974,31 @@ TOOL_RENDERERS['sann-ai'] = function(el){
       });
       const data = await r.json();
       if(data.reply){
-        wait.classList.remove('wait');
-        wait.textContent = data.reply;
+        w.d.innerHTML = fmt(data.reply);
+        addCopy(w.col, data.reply);
         sannAIHistory.push({role:'ai', text:data.reply});
       } else {
-        sannAIHistory.pop();
-        wait.classList.remove('wait');
-        wait.textContent = (r.status===429 ? 'AI lagi ramai, coba lagi sebentar ya.' : 'Maaf, AI lagi error.') + (data.error ? '\n\n[' + r.status + '] ' + data.error : '');
+        fail((r.status===429 ? 'AI lagi ramai, coba lagi sebentar ya.' : 'Maaf, AI lagi error.') + (data.error ? '\n\n[' + r.status + '] ' + data.error : ''));
       }
     }catch(e){
-      sannAIHistory.pop();
-      wait.classList.remove('wait');
-      wait.textContent = 'Gagal terhubung. Cek internetmu ya.';
+      fail('Gagal terhubung. Cek internetmu ya.');
     }
-    sannAIBusy = false;
-    box.scrollTop = box.scrollHeight;
+    setBusy(false);
+    toBottom(true);
   }
-  document.getElementById('aiSend').onclick = send;
+
+  sendBtn.onclick = ()=> send();
+  input.addEventListener('input', autoGrow);
   input.addEventListener('keydown', e=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); send(); } });
-  document.getElementById('aiClear').onclick = ()=>{ sannAIHistory = []; drawAll(); };
+  root.querySelector('#aiBack').onclick = ()=> nav('cat-' + backCat);
+  let clearArm = null;
+  clearBtn.onclick = ()=>{
+    if(!sannAIHistory.length){ toast('Obrolan masih kosong'); return; }
+    if(clearArm){ clearTimeout(clearArm); clearArm = null; sannAIHistory = []; clearBtn.textContent = ''; clearBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12M9 7V4h6v3"/></svg>'; drawAll(); return; }
+    clearBtn.textContent = 'Yakin?';
+    clearArm = setTimeout(()=>{ clearArm = null; clearBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12M9 7V4h6v3"/></svg>'; }, 2500);
+  };
+  setBusy(sannAIBusy);
   drawAll();
 };
 
