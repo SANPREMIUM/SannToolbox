@@ -15139,6 +15139,14 @@ TOOL_RENDERERS['sann-ai'] = function(el){
       .ai-b pre code{padding:0;background:none;}
       .aif-copy{align-self:flex-start;margin:4px 0 0 6px;font-size:11.5px;color:var(--muted);cursor:pointer;padding:2px 6px;border-radius:8px;}
       .aif-copy:active{background:color-mix(in srgb,var(--accent) 14%,transparent);}
+.aif-tools{display:flex;flex-direction:column;gap:7px;margin:8px 0 0;}
+      .aif-tool{display:flex;align-items:center;gap:10px;min-width:240px;padding:9px 10px 9px 9px;border-radius:16px;cursor:pointer;background:color-mix(in srgb,var(--accent) 9%,var(--surface2));border:1px solid color-mix(in srgb,var(--accent) 28%,var(--border));}
+      .aif-tool:active{transform:scale(.98);border-color:var(--accent);}
+      .aif-tool-ic{width:38px;height:38px;border-radius:12px;flex-shrink:0;display:flex;align-items:center;justify-content:center;overflow:hidden;font-size:20px;background:var(--surface3);}
+      .aif-tool-tx{flex:1;min-width:0;display:flex;flex-direction:column;}
+      .aif-tool-tx b{font-size:14px;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+      .aif-tool-tx small{font-size:11.5px;color:var(--muted);margin-top:1px;}
+      .aif-tool-go{flex-shrink:0;font-size:12.5px;font-weight:800;padding:7px 12px;border-radius:999px;color:var(--on-accent);background:linear-gradient(135deg,var(--accent),var(--accent2));}
       .aif-dots{display:flex;gap:5px;padding:4px 2px;}
       .aif-dots i{width:8px;height:8px;border-radius:50%;background:var(--muted);animation:aifDot 1.1s infinite ease-in-out;}
       .aif-dots i:nth-child(2){animation-delay:.16s;}
@@ -15224,6 +15232,33 @@ TOOL_RENDERERS['sann-ai'] = function(el){
     });
   }
 
+  /* Penanda [[tool:ID]] dari AI -> tombol "Buka" ke tool-nya. ID divalidasi lewat findTool,
+     jadi kode ngawur diabaikan. Penandanya sendiri dibuang dari teks yang tampil. */
+  function parseToolTags(t){
+    const ids = [];
+    const clean = String(t||'').replace(/\[\[\s*tool\s*:\s*([a-z0-9_-]+)\s*\]\]/gi, (m,id)=>{
+      id = id.toLowerCase();
+      if(id !== 'sann-ai' && !ids.includes(id) && ids.length < 3 && findTool(id)) ids.push(id);
+      return '';
+    }).replace(/[ \t]+\n/g,'\n').replace(/\n{3,}/g,'\n\n').trim();
+    return {clean: clean || (ids.length ? 'Ini yang kamu cari:' : ''), ids};
+  }
+  function addToolBtns(col, ids){
+    const wrap = document.createElement('div');
+    wrap.className = 'aif-tools';
+    ids.forEach(id=>{
+      const t = findTool(id); if(!t) return;
+      const b = document.createElement('div');
+      b.className = 'aif-tool'; b.setAttribute('role','button');
+      b.innerHTML = '<span class="aif-tool-ic">'+icoImg(t.id,t.em)+'</span>'+
+        '<span class="aif-tool-tx"><b>'+escapeHtml(t.nm)+'</b><small>'+escapeHtml(t.catNm||'')+'</small></span>'+
+        '<span class="aif-tool-go">Buka ›</span>';
+      b.onclick = ()=> nav('tool-'+t.id);
+      wrap.appendChild(b);
+    });
+    if(wrap.children.length) col.appendChild(wrap);
+  }
+
   function addRow(role){
     const row = document.createElement('div');
     row.className = 'aif-row ' + (role==='user' ? 'me' : 'bot');
@@ -15242,9 +15277,12 @@ TOOL_RENDERERS['sann-ai'] = function(el){
     const {col} = addRow(role);
     const d = document.createElement('div');
     d.className = 'ai-b ' + (role==='user' ? 'me' : 'bot') + (extra ? ' '+extra : '');
-    if(role === 'user') d.textContent = text; else d.innerHTML = fmt(text);
+    let shown = text, tids = [];
+    if(role !== 'user'){ const pt = parseToolTags(text); shown = pt.clean; tids = pt.ids; }
+    if(role === 'user') d.textContent = text; else d.innerHTML = fmt(shown);
     col.appendChild(d);
-    if(role !== 'user' && !extra) addCopy(col, text);
+    if(tids.length) addToolBtns(col, tids);
+    if(role !== 'user' && !extra) addCopy(col, shown);
     toBottom(true);
     return d;
   }
@@ -15277,6 +15315,7 @@ TOOL_RENDERERS['sann-ai'] = function(el){
             <div class="aif-chip" data-q="Gimana cara dapat XP dan naik level?">Cara dapat XP</div>
             <div class="aif-chip" data-q="Ceritakan satu fakta unik yang menarik.">Fakta unik</div>
             <div class="aif-chip" data-q="Rekomendasikan game seru di Toolbox.">Rekomendasi game</div>
+            <div class="aif-chip" data-q="Tool apa yang cocok buat mengompres foto?">Cari tool</div>
           </div>
         </div>`;
       box.querySelectorAll('.aif-chip').forEach(c=>{ c.onclick = ()=> send(c.dataset.q); });
@@ -15309,8 +15348,10 @@ TOOL_RENDERERS['sann-ai'] = function(el){
       });
       const data = await r.json();
       if(data.reply){
-        w.d.innerHTML = fmt(data.reply);
-        addCopy(w.col, data.reply);
+        const pt = parseToolTags(data.reply);
+        w.d.innerHTML = fmt(pt.clean);
+        if(pt.ids.length) addToolBtns(w.col, pt.ids);
+        addCopy(w.col, pt.clean);
         sannAIHistory.push({role:'ai', text:data.reply});
       } else {
         fail((r.status===429 ? 'AI lagi ramai, coba lagi sebentar ya.' : 'Maaf, AI lagi error.') + (data.error ? '\n\n[' + r.status + '] ' + data.error : ''));
