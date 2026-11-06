@@ -3709,22 +3709,21 @@ async function fsCountUsers(){
 /* Counter publik jumlah pengguna, dibaca di layar login SEBELUM user login.
    Tidak mengandalkan list() koleksi 'users' (yang biasanya diblokir rules
    untuk visitor yang belum auth) — cukup baca 1 dokumen counter. */
+let _pubCountCache = null, _pubCountAt = 0;
 async function fsGetPublicUserCount(){
-  // Dulu baca dari counter manual (nambah terus tiap ada yg daftar, tapi
-  // nggak pernah dikurangi kalau ada akun yang dihapus) — jadi bisa
-  // "ngambang" lebih besar dari jumlah user yang beneran ada, kayak yang
-  // kejadian (counter bilang 20, padahal Papan Skor cuma nampilin 3 user
-  // asli). Sekarang dihitung langsung dari koleksi user aslinya, sama
-  // kayak yang dipakai Papan Skor, jadi pasti selalu sesuai.
+  // HEMAT KUOTA: cukup baca 1 dokumen counter (stats/public) -- BUKAN seluruh
+  // koleksi 'users' (yang memakan N baca tiap layar login dibuka). Counter
+  // bertambah otomatis saat ada yang daftar; kalau angkanya melenceng (misal
+  // ada akun dihapus), admin tinggal tekan "Sinkron" di Admin Panel.
+  if(_pubCountCache!==null && Date.now()-_pubCountAt < 60000) return _pubCountCache;
   try{
-    const snap = await db.collection('users').get();
-    return snap.size;
+    const s = await db.collection('stats').doc('public').get();
+    const n = s.exists ? (s.data().userCount || 0) : 0;
+    _pubCountCache = n; _pubCountAt = Date.now();
+    return n;
   }catch(e){
-    console.error('Gagal hitung jumlah pengguna dari koleksi user, pakai counter cadangan:', e);
-    try{
-      const s2 = await db.collection('stats').doc('public').get();
-      return s2.exists ? (s2.data().userCount || 0) : 0;
-    }catch(e2){ return 0; }
+    console.error('Gagal baca counter jumlah pengguna:', e);
+    return _pubCountCache!==null ? _pubCountCache : 0;
   }
 }
 async function fsIncrementPublicUserCount(){
@@ -3861,7 +3860,7 @@ async function fsBuyBorder(borderId, price){
 /* ---------- status online (presence) ----------
    Tidak pakai kamera/mikrofon/lokasi — hanya menandai waktu aktif
    terakhir user di Firestore, lalu dibandingkan dengan waktu sekarang. */
-const ONLINE_THRESHOLD_MS = 45000; // dianggap online jika heartbeat < 45 detik lalu
+const ONLINE_THRESHOLD_MS = 210000; // dianggap online jika heartbeat < 3,5 menit lalu (heartbeat dikirim tiap 3 menit)
 function isUserOnline(rec){
   if(!rec) return false;
   // Diri sendiri: kalau lagi buka aplikasi ini, pasti online -- jangan tunggu
@@ -3873,9 +3872,14 @@ function isUserOnline(rec){
   return (Date.now() - rec.lastActive.toMillis()) < ONLINE_THRESHOLD_MS;
 }
 let _presenceInterval = null;
+let _lastHbAt = 0;
 async function fsHeartbeat(){
   const me = currentUsername();
   if(!me) return;
+  // HEMAT KUOTA TULIS: jeda minimal 60 detik antar heartbeat, karena event
+  // focus + visibilitychange + interval bisa menembak hampir bersamaan.
+  if(Date.now() - _lastHbAt < 60000) return;
+  _lastHbAt = Date.now();
   try{
     await db.collection('users').doc(me).update({
       lastActive: firebase.firestore.FieldValue.serverTimestamp()
@@ -3891,7 +3895,7 @@ function startPresence(){
   registerPushToken();
   setTimeout(registerPushToken, 4000);
   setTimeout(registerPushToken, 12000);
-  _presenceInterval = setInterval(fsHeartbeat, 60000);
+  _presenceInterval = setInterval(()=>{ if(document.visibilityState === 'visible') fsHeartbeat(); }, 180000); // tiap 3 menit, hanya saat app terlihat
   document.addEventListener('visibilitychange', onVisibilityChangePresence);
   window.addEventListener('focus', fsHeartbeat);
 }
@@ -4806,14 +4810,24 @@ async function deleteInfoUpdateEntry(id){
 }
 
 let _lbUnsub = null;
+const LB_LIMIT = 50;
+let _lbTotal = 0, _lbRowsLen = 0;
 function stopLeaderboardListener(){ if(_lbUnsub){ _lbUnsub(); _lbUnsub=null; } }
 function loadLeaderboard(){
   stopLeaderboardListener();
   const body = document.getElementById('lbBody');
   if(!body) return;
-  _lbUnsub = db.collection('users').orderBy('score','desc')
+  // HEMAT KUOTA: hanya Top 50 yang di-listen (sebelumnya SELURUH user), dan
+  // "Total Pemain" diambil dari counter 1 dokumen, bukan dari jumlah baris.
+  fsGetPublicUserCount().then(n=>{
+    _lbTotal = n;
+    const t = document.getElementById('lbTotalNum');
+    if(t) t.textContent = Math.max(n||0, _lbRowsLen);
+  });
+  _lbUnsub = db.collection('users').orderBy('score','desc').limit(LB_LIMIT)
     .onSnapshot(snap=>{
       const rows = snap.docs.map(d=>({u:d.id, ...d.data({serverTimestamps:'estimate'})}));
+      _lbRowsLen = rows.length;
       const el = document.getElementById('lbBody');
       if(!el) return;
       const top = rows[0];
@@ -4828,7 +4842,7 @@ function loadLeaderboard(){
           </div>
         </div>` : ''}
         <div class="nx-stats two">
-          ${nxStat('users', rows.length, 'Total Pemain', '#4f8dff')}
+          ${nxStat('users', '<span id="lbTotalNum">'+Math.max(_lbTotal||0, rows.length)+'</span>', 'Total Pemain', '#4f8dff')}
           ${nxStat('wifi', onlineCount, 'Sedang Online', '#2ecc8f')}
         </div>
         <div class="section-label">Peringkat Pemain</div>
