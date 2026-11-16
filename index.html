@@ -98,6 +98,7 @@ button{font-family:inherit;}
 .ta-secret{position:relative;width:116px;height:116px;border-radius:30px;display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:58px;font-weight:700;color:var(--on-accent);background:linear-gradient(135deg,var(--accent),var(--accent2));box-shadow:0 10px 28px -8px color-mix(in srgb, var(--accent) 60%, transparent);animation:taFloat 2.6s ease-in-out infinite;}
 .ta-secret.ta-bump{animation:taBump .35s ease, taFloat 2.6s ease-in-out .35s infinite;}
 .ta-secret.win{background:linear-gradient(135deg,var(--good),var(--accent2));font-size:44px;animation:taPop .6s ease, taGlow 1.6s ease-in-out .6s infinite;}
+.mc-front svg{width:1.5em;height:1.5em;display:block;}
 .ta-conf{position:absolute;left:50%;top:50%;width:0;height:0;pointer-events:none;}
 .ta-conf-p{position:absolute;width:8px;height:12px;border-radius:2px;animation:taConf 1.3s ease-out forwards;}
 .ta-track{position:relative;height:12px;border-radius:8px;background:var(--surface3);overflow:hidden;}
@@ -575,6 +576,7 @@ input[type=color]{width:100%;height:44px;border-radius:12px;border:1px solid var
 .rps-btns{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
 .rps-btns .btn{font-size:30px;padding:16px 0;touch-action:manipulation;}
 .rps-btns .btn[disabled]{opacity:.45;}
+.rps-hand svg,.rps-btns .btn svg{display:block;width:1em;height:1em;margin:0 auto;pointer-events:none;}
 
 /* -- Update game: Memory Card -- */
 .mc-board{display:grid;gap:8px;max-width:340px;margin:10px auto;}
@@ -769,6 +771,12 @@ input[type=color]{width:100%;height:44px;border-radius:12px;border:1px solid var
 .avatar-frame .avatar-current-lg{width:88px;height:88px;position:relative;z-index:1;}
 .avatar-frame .border-overlay-lg{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:contain;pointer-events:none;z-index:2;display:none;}
 .avatar-frame .border-overlay-lg.show{display:block;}
+.profile-avatar.has-bfit{background:none !important;overflow:visible !important;box-shadow:none !important;}
+.profile-avatar.has-bfit>img.border-overlay-lg{border-radius:0;object-fit:contain;}
+/* avatar dipasang pas di dalam lingkar border (variabel diisi dari BORDER_FIT) */
+.avatar-frame.has-bfit .avatar-current-lg,
+.profile-avatar.has-bfit>img:not(.border-overlay-lg),
+.border-item .border-preview.has-bfit img.b-avatar{position:absolute;inset:auto;left:calc(var(--bcx) * 100%);top:calc(var(--bcy) * 100%);width:calc(var(--bfit) * 100%);height:calc(var(--bfit) * 100%);margin:0;transform:translate(-50%,-50%);box-sizing:border-box;}
 .border-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px;}
 .border-item{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:10px;text-align:center;cursor:pointer;position:relative;}
 .border-item .border-preview{position:relative;width:100%;aspect-ratio:1;margin:0 auto;}
@@ -1683,6 +1691,119 @@ i[class^=svi-]{display:inline-block;width:1.15em;height:1.15em;vertical-align:-.
 .svi-medal1{color:#f5b301}.svi-medal2{color:#9aa4b2}.svi-medal3{color:#c9803f}.svi-star{color:#f5b301}.svi-flame{color:#ff7a18}.svi-trophy{color:#f5b301}.svi-dotg{color:#22c55e}.svi-dotr{color:#ef4444}.svi-dotb{color:#3b82f6}.svi-dotw{color:#f1f5f9}.svi-dotk{color:#1f2937}.svi-doty{color:#facc15}.svi-heart{color:#ef4444}.svi-hearto{color:#6b7280}.svi-bomb{color:#374151}.svi-info{color:#4f8dff}
 [class^=rkb-]{display:inline-flex;align-items:center;justify-content:center;width:1.55em;height:1.55em;border-radius:50%;font-size:.8em;font-weight:900;line-height:1;color:#1b1400;box-shadow:inset 0 0 0 2px rgba(255,255,255,.28)}
 .rkb-1{background:linear-gradient(145deg,#ffe88a,#f5b301)}.rkb-2{background:linear-gradient(145deg,#f8fafc,#9fb0c3)}.rkb-3{background:linear-gradient(145deg,#ffc58f,#c4743a)}
+.home-clock{display:flex;align-items:center;gap:8px;margin:-6px 0 14px;font-size:12.5px;line-height:1.2;color:var(--muted);white-space:nowrap;}
+.home-clock b{font-family:var(--font-mono);font-size:13px;font-weight:700;letter-spacing:.3px;color:var(--text);background:var(--surface2);border:1px solid var(--border);border-radius:999px;padding:3px 11px;font-variant-numeric:tabular-nums;}
+/* ===== swipe-down handle sheet kategori ===== */
+.cs-grab{position:relative;width:46px;height:5px;}
+.cs-grab::after{content:'';position:absolute;left:-70px;right:-70px;top:-12px;bottom:-14px;}
+.cs-panel{overscroll-behavior:contain;}
+
+/* ===== MENU GARIS TIGA: tampilan ringkas (akordeon kategori) ===== */
+#menuDrawer{width:min(78%,320px);padding:calc(10px + env(safe-area-inset-top)) 10px 16px;}
+#menuDrawer .md-head{display:flex;align-items:center;gap:9px;margin:0 0 9px;}
+#menuDrawer .md-t{flex:1;min-width:0;}
+#menuDrawer .md-nm{font-family:var(--font-display);font-weight:800;font-size:15px;line-height:1.1;}
+#menuDrawer .md-sb{font-size:10px;color:var(--muted);margin-top:2px;}
+#menuDrawer .md-close{width:38px;height:38px;flex-shrink:0;border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted);background:var(--surface2);border:1px solid var(--border);}
+#menuDrawer .md-close:active{transform:scale(.92);}
+#menuDrawer .menu-search{margin:0 0 8px;padding:0 10px;border-radius:10px;}
+#menuDrawer .menu-search input{padding:7px 0;font-size:12.5px;}
+#menuDrawer .menu-quick{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:0 0 10px;}
+#menuDrawer .mq-item{padding:7px 9px;gap:8px;border-radius:13px;}
+#menuDrawer .mq-item::after{display:none;}
+#menuDrawer .mq-ic{width:36px;height:36px;border-radius:12px;}
+#menuDrawer .mq-ic svg{width:21px;height:21px;}
+#menuDrawer .mq-nm{font-size:11.5px;line-height:1.15;}
+#menuDrawer .mq-ds,#menuDrawer .mq-chev{display:none;}
+#menuDrawer .md-sec{font-size:10.5px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);margin:2px 2px 6px;}
+#menuDrawer .menu-group{margin:0 0 5px;border-radius:12px;background:color-mix(in srgb,var(--surface2) 65%,transparent);background-image:none;}
+#menuDrawer .menu-group .menu-cat{margin:0;padding:6px 9px;border:none;border-radius:12px;box-shadow:none;background:none;color:var(--text);font-size:12.5px;letter-spacing:0;gap:8px;cursor:pointer;}
+#menuDrawer .menu-group .menu-cat:active{background:var(--surface3);}
+#menuDrawer .mc-ic{width:38px;height:38px;border-radius:12px;font-size:22px;}
+#menuDrawer .mc-nm{flex:1;min-width:0;font-weight:800;}
+#menuDrawer .mc-ct{font-size:10px;font-weight:700;color:var(--muted);background:var(--surface3);border-radius:8px;padding:1px 7px;}
+#menuDrawer .mc-chev{display:flex;color:var(--muted);transition:transform .2s;}
+#menuDrawer .menu-group.open .mc-chev{transform:rotate(90deg);}
+#menuDrawer .mg-body{display:none;grid-template-columns:1fr 1fr;gap:2px;padding:0 5px 6px;}
+#menuDrawer .menu-group.open .mg-body{display:grid;}
+#menuDrawer .mg-body .menu-item{padding:6px 7px;gap:6px;border-radius:9px;border:none;font-size:11.5px;min-width:0;}
+#menuDrawer .mg-body .menu-item .menu-ic{width:30px;height:30px;font-size:18px;}
+#menuDrawer .mi-nm{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+#menuSearchResults .menu-item{padding:7px 10px;font-size:12.5px;}
+@media (orientation:landscape) and (max-height:620px){
+  #menuDrawer{width:min(42vw,320px);padding-left:max(10px,env(safe-area-inset-left));}
+}
+
+/* ===== PROFIL: pensil + popup, dan tata letak 2 kolom di landscape ===== */
+.pf-edit{position:absolute;right:-2px;bottom:-2px;z-index:3;width:30px;height:30px;padding:0;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent-end));border:2px solid var(--surface);box-shadow:0 4px 10px -3px rgba(0,0,0,.5);}
+.pf-edit:active{transform:scale(.9);}
+.pf-ava{position:relative;}
+.pf-pop{position:fixed;inset:0;z-index:260;display:flex;align-items:center;justify-content:center;padding:14px;}
+.pf-pop-back{position:absolute;inset:0;background:rgba(0,0,0,.55);opacity:0;transition:opacity .2s;}
+.pf-pop-card{position:relative;width:min(88vw,330px);max-height:92vh;overflow-y:auto;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:12px;box-shadow:0 20px 50px -16px rgba(0,0,0,.7);opacity:0;transform:translateY(10px) scale(.96);transition:.2s;}
+.pf-pop.open .pf-pop-back{opacity:1;}
+.pf-pop.open .pf-pop-card{opacity:1;transform:none;}
+.pf-pop-h{display:flex;align-items:center;justify-content:space-between;margin:0 2px 10px;font-family:var(--font-display);font-size:15px;}
+.pf-pop-x{width:28px;height:28px;border-radius:9px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted);background:var(--surface2);border:1px solid var(--border);}
+.pf-pop-row{display:flex;align-items:center;gap:12px;padding:10px 12px;margin-bottom:8px;border-radius:14px;cursor:pointer;background:var(--surface2);border:1px solid var(--border);}
+.pf-pop-row:last-child{margin-bottom:0;}
+.pf-pop-row:active{transform:scale(.98);background:var(--surface3);}
+.pf-pop-th{width:42px;height:42px;border-radius:50%;flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center;background:var(--surface3);border:2px solid var(--accent);}
+.pf-pop-th img{width:100%;height:100%;object-fit:cover;}
+.pf-pop-th.ring{background:none;border:none;box-shadow:inset 0 0 0 3px var(--accent),inset 0 0 0 5px var(--surface2),inset 0 0 0 7px var(--accent-end);}
+.pf-pop-tx{flex:1;min-width:0;display:flex;flex-direction:column;}
+.pf-pop-tx b{font-size:14px;}
+.pf-pop-tx span{font-size:11px;color:var(--muted);margin-top:1px;}
+.pf-pop-row>i{font-style:normal;font-size:20px;color:var(--muted);}
+
+
+/* ===== tampilan baru: Backup & Restore, Keamanan Akun, Battery ===== */
+.nw-hero{display:flex;align-items:center;gap:14px;padding:14px 16px;margin-bottom:12px;border-radius:20px;color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent-end));box-shadow:0 10px 24px -14px var(--accent);}
+.nw-hero .ic{width:48px;height:48px;border-radius:15px;flex:none;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.22);}
+.nw-hero b{display:block;font-size:16px;font-family:var(--font-display);}
+.nw-hero span{display:block;font-size:12px;opacity:.9;margin-top:2px;line-height:1.35;}
+.nw-chips{display:flex;gap:8px;margin:0 0 12px;}
+.nw-chip{flex:1;text-align:center;padding:9px 6px;border-radius:14px;background:var(--surface2);border:1px solid var(--border);}
+.nw-chip b{display:block;font-size:17px;}.nw-chip span{font-size:10.5px;color:var(--muted);}
+.nw-h{display:flex;align-items:center;gap:10px;margin:0 0 10px;}
+.nw-n{width:28px;height:28px;border-radius:10px;flex:none;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent-end));}
+.nw-h b{font-size:14px;flex:1;}.nw-h em{font-style:normal;font-size:10.5px;font-weight:800;padding:2px 9px;border-radius:99px;color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,transparent);}
+.nw-card{margin-bottom:12px;}
+.nw-card .nw-p{font-size:12px;color:var(--muted);margin:0 0 10px;line-height:1.5;}
+.ak-str{height:6px;border-radius:99px;background:var(--surface3);margin-top:8px;overflow:hidden;}
+.ak-str i{display:block;height:100%;width:0;border-radius:99px;transition:width .25s,background .25s;}
+.bt-ring{position:relative;width:190px;height:190px;margin:6px auto 14px;}
+.bt-ring svg{width:100%;height:100%;transform:rotate(-90deg);}
+.bt-ring .tr{stroke:var(--surface3);}.bt-ring .pg{transition:stroke-dashoffset .6s,stroke .3s;}
+.bt-mid{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+.bt-mid b{font-size:42px;font-family:var(--font-display);line-height:1;}.bt-mid span{font-size:12px;color:var(--muted);margin-top:4px;}
+
+.nw-seg{display:flex;gap:4px;padding:4px;margin:0 0 12px;border-radius:14px;background:var(--surface2);border:1px solid var(--border);}
+.nw-seg button{flex:1;border:0;padding:9px;border-radius:11px;font:800 13px var(--font-body,inherit);color:var(--muted);background:none;cursor:pointer;}
+.nw-seg button.on{color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent-end));}
+.nw-row{display:flex;align-items:center;gap:8px;font-size:12px;margin:7px 0;}.nw-row span{width:92px;flex:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.nw-row i{display:block;height:8px;border-radius:9px;background:linear-gradient(90deg,var(--accent),var(--accent-end));min-width:4px;}.nw-row em{font-style:normal;color:var(--muted);font-size:11px;margin-left:auto;}
+.nw-warn{background:linear-gradient(135deg,#f59e0b,#ef4444)!important;}
+.ak-req{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}.ak-req span{font-size:11px;font-weight:700;padding:3px 9px;border-radius:99px;background:var(--surface3);color:var(--muted);}.ak-req span.ok{background:rgba(34,197,94,.18);color:#16a34a;}
+.ak-pw{position:relative;}.ak-pw input{padding-right:44px!important;}.ak-eye{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:34px;height:34px;border:0;border-radius:10px;background:none;color:var(--muted);cursor:pointer;font-size:16px;}
+.bt-body{position:relative;width:230px;height:104px;margin:8px auto 14px;border:5px solid var(--text);border-radius:22px;padding:6px;box-sizing:border-box;}
+.bt-body:after{content:'';position:absolute;right:-14px;top:30px;width:9px;height:32px;border-radius:0 6px 6px 0;background:var(--text);}
+.bt-fill{height:100%;border-radius:14px;transition:width .6s;display:flex;align-items:center;justify-content:center;color:#fff;font:800 26px var(--font-display);text-shadow:0 1px 4px rgba(0,0,0,.4);}
+.bt-spark{width:100%;height:64px;}
+
+.sc-top{text-align:center;padding:18px 14px 16px;margin-bottom:12px;border-radius:24px;background:var(--surface);border:1px solid var(--border);}
+.sc-ring{position:relative;width:132px;height:132px;margin:0 auto 10px;}.sc-ring svg{width:100%;height:100%;transform:rotate(-90deg);}
+.sc-ring .tr{stroke:var(--surface3);}.sc-ring .pg{transition:stroke-dashoffset .8s,stroke .3s;}
+.sc-mid{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}.sc-mid b{font:800 34px var(--font-display);line-height:1;}.sc-mid span{font-size:11px;color:var(--muted);margin-top:2px;}
+.sc-top h3{margin:0;font:800 17px var(--font-display);}.sc-top p{margin:4px 0 0;font-size:12px;color:var(--muted);}
+.sc-item{margin-bottom:10px;border-radius:18px;background:var(--surface);border:1px solid var(--border);overflow:hidden;}
+.sc-hd{display:flex;align-items:center;gap:12px;padding:13px 14px;cursor:pointer;}
+.sc-ic{width:40px;height:40px;border-radius:13px;flex:none;display:flex;align-items:center;justify-content:center;color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent-end));}
+.sc-tx{flex:1;min-width:0;}.sc-tx b{display:block;font-size:14px;}.sc-tx span{display:block;font-size:11.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.sc-bd{font-size:10.5px;font-weight:800;padding:3px 9px;border-radius:99px;background:rgba(34,197,94,.18);color:#16a34a;}.sc-bd.no{background:rgba(245,158,11,.2);color:#d97706;}
+.sc-ch{color:var(--muted);transition:transform .2s;}.sc-item.open .sc-ch{transform:rotate(90deg);}
+.sc-body{display:none;padding:0 14px 14px;}.sc-item.open .sc-body{display:block;}
+.sc-tips{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:4px;}.sc-tip{padding:12px 8px;text-align:center;font-size:11px;line-height:1.35;border-radius:16px;background:var(--surface2);border:1px solid var(--border);}.sc-tip b{display:flex;justify-content:center;margin-bottom:6px;}.sc-tip b svg{width:24px;height:24px;}
 </style>
 </head>
 <body>
@@ -3381,6 +3502,20 @@ const BG_PRESETS = {
   langit:    'linear-gradient(160deg,#a1c4fd,#c2e9fb)',
   sakura:    'radial-gradient(circle at 20% 10%,#ffd1dc,transparent 50%),radial-gradient(circle at 90% 60%,#cdb4ff,transparent 50%),linear-gradient(#fff0f5,#fff0f5)',
   pelangi:   'radial-gradient(circle at 10% 20%,#ffd6a5 0,transparent 40%),radial-gradient(circle at 90% 20%,#caffbf 0,transparent 40%),radial-gradient(circle at 30% 90%,#9bf6ff 0,transparent 45%),radial-gradient(circle at 85% 85%,#ffc6ff 0,transparent 45%),linear-gradient(#fdffb6,#fdffb6)',
+  safir:     'linear-gradient(160deg,#0b132b,#1c2541,#3a506b)',
+  anggur:    'linear-gradient(160deg,#1b0a2a,#4a1942,#8e3b6b)',
+  kopi:      'linear-gradient(160deg,#1c1008,#3b2412,#6f4a2e)',
+  arang:     'linear-gradient(160deg,#0a0a0a,#1f2428,#3a4147)',
+  galaksi:   'radial-gradient(circle at 25% 20%,rgba(99,102,241,.6),transparent 45%),radial-gradient(circle at 80% 75%,rgba(236,72,153,.5),transparent 45%),#0b0b1e',
+  fajar:     'linear-gradient(160deg,#ff9a9e,#fecfef 55%,#ffd8a8)',
+  pantai:    'linear-gradient(160deg,#00c6ff,#0072ff 60%,#f9d976)',
+  apel:      'linear-gradient(160deg,#56ab2f,#a8e063)',
+  anggrek:   'linear-gradient(160deg,#c471ed,#f64f59)',
+  kapas:     'linear-gradient(160deg,#f5f7fa,#c3cfe2)',
+  vanila:    'linear-gradient(160deg,#fff9e6,#ffe8b8)',
+  embun:     'linear-gradient(160deg,#e0f7fa,#b2ebf2,#e1bee7)',
+  melon:     'linear-gradient(160deg,#fdfbfb,#d4fc79 60%,#96e6a1)',
+  pualam:    'radial-gradient(circle at 30% 20%,#ffffff,transparent 50%),linear-gradient(160deg,#e9ecef,#ced4da)'
 };
 const BG_LABELS = {
   aurora:'Aurora', sunset:'Sunset', hutan:'Hutan Malam', ungu:'Ungu Mistis',
@@ -3388,14 +3523,15 @@ const BG_LABELS = {
   neon:'Neon Malam', magma:'Magma', zamrud:'Zamrud', tengah:'Tengah Malam',
   cyber:'Cyber', nebula:'Nebula', karbon:'Karbon',
   tropis:'Tropis', jingga:'Jingga', elektrik:'Elektrik', ceri:'Ceri', samudra:'Samudra',
-  permen:'Permen', persik:'Persik', mint:'Mint', lavender:'Lavender', langit:'Langit', sakura:'Sakura', pelangi:'Pelangi'
+  permen:'Permen', persik:'Persik', mint:'Mint', lavender:'Lavender', langit:'Langit', sakura:'Sakura', pelangi:'Pelangi',
+  safir:'Safir', anggur:'Anggur', kopi:'Kopi', arang:'Arang', galaksi:'Galaksi', fajar:'Fajar', pantai:'Pantai', apel:'Apel', anggrek:'Anggrek', kapas:'Kapas', vanila:'Vanila', embun:'Embun', melon:'Melon', pualam:'Pualam'
 };
 const BG_GROUPS = [
-  ['Gelap', ['aurora','sunset','hutan','ungu','laut','mawar','bintang','hangat','neon','magma','zamrud','tengah','cyber','nebula','karbon']],
-  ['Cerah', ['tropis','jingga','elektrik','ceri','samudra']],
-  ['Pastel', ['permen','persik','mint','lavender','langit','sakura','pelangi']]
+  ['Gelap', ['aurora','sunset','hutan','ungu','laut','mawar','bintang','hangat','neon','magma','zamrud','tengah','cyber','nebula','karbon','safir','anggur','kopi','arang','galaksi']],
+  ['Cerah', ['tropis','jingga','elektrik','ceri','samudra','fajar','pantai','apel','anggrek']],
+  ['Pastel', ['permen','persik','mint','lavender','langit','sakura','pelangi','kapas','vanila','embun','melon','pualam']]
 ];
-const BG_PASTEL = new Set(['permen','persik','mint','lavender','langit','sakura','pelangi','samudra']);
+const BG_PASTEL = new Set(['permen','persik','mint','lavender','langit','sakura','pelangi','samudra','fajar','kapas','vanila','embun','melon','pualam']);
 /* Seberapa tebal lapisan warna tema di atas background. Preset gelap di mode
    terang diredam sedikit; preset pastel di mode gelap diredam lebih banyak. */
 function bgTint(mode,id){
@@ -3489,6 +3625,8 @@ const ACHIEVEMENTS = [
   {id:'game_win10', em:'👑', nm:'Juara', desc:'Menangkan 10 game', check:s=>s.gamesWon>=10},
   {id:'note_taker', em:'📝', nm:'Pencatat', desc:'Buat 5 catatan', check:s=>s.notesMade>=5},
   {id:'todo_10', em:'✅', nm:'Produktif', desc:'Selesaikan 10 todo', check:s=>s.todosDone>=10},
+  {id:'streak30', em:'📅', nm:'Sebulan Penuh', desc:'Streak 30 hari', check:s=>s.streak>=30},
+  {id:'lvl25', em:'💎', nm:'Level 25', desc:'Mencapai level 25', check:s=>calcLevel(s.xp).level>=25},
 ];
 function calcLevel(xp){
   let level=1, need=100, total=0;
@@ -3594,9 +3732,12 @@ function markToolUsed(id, nm){
 }
 function checkAchievements(){
   const p = getProfile();
+  if(!p.unlocked) p.unlocked = {};
   let newly = [];
   ACHIEVEMENTS.forEach(a=>{
-    if(!p.unlocked[a.id] && a.check(p)){ p.unlocked[a.id]=true; newly.push(a); }
+    try{
+      if(!p.unlocked[a.id] && a.check(p)){ p.unlocked[a.id]=true; newly.push(a); }
+    }catch(e){ console.error('Cek achievement gagal:', a.id, e); }
   });
   if(newly.length){ saveProfile(p); setTimeout(()=>toast('<i class=svi-trophy></i> Achievement: '+newly[0].nm), 400); }
 }
@@ -3674,6 +3815,13 @@ const SHOP_BORDERS = [
 ];
 const ALL_BORDERS = [...STARTER_BORDERS, ...SHOP_BORDERS.map(b=>b.id)];
 function borderSrc(id){ return './borders/'+id+'.png'; }
+/* Penyesuaian avatar ke tiap border: [pusat X, pusat Y, diameter avatar] sebagai pecahan dari lebar border.
+   Supaya tepi foto avatar selalu tertutup rapat oleh border (tidak mengintip di sela-sela hiasan). */
+const BORDER_FIT = {'border-1':[0.501,0.514,0.651],'border-2':[0.516,0.482,0.742],'border-3':[0.5,0.505,0.647],'border-4':[0.52,0.479,0.758],'border-5':[0.498,0.487,0.598],'border-6':[0.506,0.481,0.686],'border-7':[0.501,0.451,0.661],'border-8':[0.491,0.473,0.65],'border-9':[0.503,0.487,0.561],'border-10':[0.521,0.51,0.593],'border-11':[0.525,0.481,0.595],'border-12':[0.51,0.49,0.575],'border-13':[0.502,0.501,0.617],'border-14':[0.5,0.497,0.594],'border-15':[0.498,0.498,0.679],'border-16':[0.499,0.498,0.635],'border-17':[0.5,0.502,0.631]};
+function borderFitStyle(id){
+  const f = BORDER_FIT[id]; if(!f) return '';
+  return '--bcx:'+f[0]+';--bcy:'+f[1]+';--bfit:'+f[2]+';';
+}
 
 /* ============================================================
    FIREBASE INIT + AUTH
@@ -5195,7 +5343,7 @@ function renderUserProfileBody(username, rec){
       : (lastSeenTxt || 'Offline');
     body.innerHTML = `
       <div class="card" style="text-align:center;">
-        <div class="profile-avatar avatar-frame">
+        <div class="profile-avatar avatar-frame${(rec.border && rec.border!=='none' && BORDER_FIT[rec.border]) ? ' has-bfit' : ''}" style="${(rec.border && rec.border!=='none') ? borderFitStyle(rec.border) : ''}">
           <img loading="lazy" decoding="async" src="${avatarSrc(rec.avatar||'avatar-1')}" alt="" onerror="this.remove()">${escapeHtml(initial)}<span class="status-dot ${online?'online':''}"></span>
           ${(rec.border && rec.border!=='none') ? `<img loading="lazy" decoding="async" class="border-overlay-lg show" src="${borderSrc(rec.border)}" alt="" onerror="this.remove()">` : ''}
         </div>
@@ -5968,7 +6116,7 @@ const CATS = [
   {id:'g-ular-neon', em:'🐍', nm:'Ular Neon', desc:'Ular bercahaya di arena neon — 30 level, 3 mode, power-up & 12 skin (ada yang bertanduk, bermahkota, berefek api & listrik). Progres tersimpan otomatis.'},
   {id:'g-roket-asteroid', em:'🚀', nm:'Roket vs Asteroid', desc:'Kemudikan roket, tembak asteroid, kejar skor tertinggi sebelum kehabisan nyawa. Progres tersimpan otomatis.'},
   {id:'g-peri-bintang', em:'🧚', nm:'Petualangan Peri Bintang', desc:'Jelajahi 50 level dunia peri bintang, 16 karakter, dan rintangan bervariasi. Progres tersimpan otomatis.'},
-  {id:'g-pasar-malam', em:'🎪', nm:'Lapak Pasar Malam', desc:'Ditutup sementara, belum bisa dimainkan untuk saat ini.'},
+  {id:'g-pasar-malam', em:'🎪', nm:'Lapak Pasar Malam', desc:'Jaga lapak di pasar malam 3D: layani pelanggan yang datang, kumpulkan untung, dan kembangkan lapakmu.'},
   {id:'g-wordle', em:'🔠', nm:'Word Search', desc:'Temukan kata tersembunyi di kotak huruf acak, geser atau ketuk hurufnya'},
   {id:'g-tetris', em:'🧱', nm:'Block Puzzle', desc:'Seret balok ke papan, penuhi baris/kolom buat dapat skor'},
   {id:'g-chess', em:'♟️', nm:'Chess vs AI', desc:'Catur klasik melawan komputer, cocok buat latihan'},
@@ -6220,6 +6368,7 @@ function openNavPicker(){
     <div class="cs-sub">Pilih maksimal ${BN_MAX} kategori buat dipasang di bar bawah. Tap lagi kategori yang sudah dipilih buat melepasnya.</div>
     <div class="cs-grid" id="navPickGrid"></div></div>`;
   document.body.appendChild(el);
+  _sheetSwipe(el);
   fillNavPicker();
   requestAnimationFrame(()=>el.classList.add('open'));
 }
@@ -6401,8 +6550,28 @@ function render(){
     `;
   }
   c.innerHTML = `<div class="page active">${html}</div>`;
+  try{ tickHomeClock(); }catch(e){}
   try{ afterRender(); }catch(err){ console.error('afterRender error:', err); }
 }
+
+/* ---------- jam beranda (landscape): real-time + zona WIB / WITA / WIT ---------- */
+function _tzLabel(){
+  let tz=''; try{ tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; }catch(e){}
+  if(/^Asia\/(Jakarta|Pontianak)$/.test(tz)) return 'WIB';
+  if(/^Asia\/(Makassar|Ujung_Pandang)$/.test(tz)) return 'WITA';
+  if(/^Asia\/Jayapura$/.test(tz)) return 'WIT';
+  const off = -new Date().getTimezoneOffset();
+  if(!tz){ if(off===420) return 'WIB'; if(off===480) return 'WITA'; if(off===540) return 'WIT'; }
+  const sg = off>=0 ? '+' : '-', a = Math.abs(off);
+  return 'GMT' + sg + Math.floor(a/60) + (a%60 ? ':'+String(a%60).padStart(2,'0') : '');
+}
+function tickHomeClock(){
+  const el = document.getElementById('homeClock'); if(!el) return;
+  const d = new Date(), z = n=>String(n).padStart(2,'0');
+  let tgl=''; try{ tgl = d.toLocaleDateString('id-ID',{weekday:'long',day:'numeric',month:'short',year:'numeric'}); }catch(e){}
+  el.innerHTML = '<b>'+z(d.getHours())+'.'+z(d.getMinutes())+'.'+z(d.getSeconds())+' '+_tzLabel()+'</b>'+(tgl?'<span>'+tgl+'</span>':'');
+}
+if(!window._homeClockT){ window._homeClockT = setInterval(tickHomeClock, 1000); }
 
 function renderHome(){
   const p = getProfile();
@@ -6434,6 +6603,7 @@ function renderHome(){
     <div class="home-wrap ${animCls}"><div class="home-glow g1"></div><div class="home-glow g2"></div>
     <h1 class="page-title">${getGreeting()}${uname? ', '+escapeHtml(uname) : ''}</h1>
     <p class="page-sub">Semua tools kamu, dalam satu tempat.</p>
+    <div class="home-clock" id="homeClock"></div>
     <div class="hero-card">
       <div class="hero-ring">
         <svg viewBox="0 0 60 60">
@@ -6470,6 +6640,38 @@ const CAT_NEON = {
   sansekerta:['#fdba74','#c2410c'], produktif:['#a3e635','#4d7c0f']
 };
 function catNeon(c){ const n = CAT_NEON[c.id] || ['#6f8dff','#22d3ee']; return `--g1:${n[0]};--g2:${n[1]}`; }
+/* Geser ke bawah untuk menutup sheet (garis di atas / judul / isi yang sudah di paling atas) */
+function _sheetSwipe(el){
+  const panel = el.querySelector('.cs-panel'), back = el.querySelector('.cs-back');
+  if(!panel) return;
+  let y0=0, dy=0, drag=false, t0=0;
+  const start = e=>{
+    if(!e.touches || e.touches.length!==1) return;
+    const onHead = !!e.target.closest('.cs-grab, .cs-title');
+    if(!onHead && panel.scrollTop>0) return;
+    y0=e.touches[0].clientY; dy=0; drag=true; t0=Date.now();
+    panel.style.transition='none';
+  };
+  const move = e=>{
+    if(!drag) return;
+    dy = Math.max(0, e.touches[0].clientY - y0);
+    panel.style.transform = dy ? 'translateY('+dy+'px)' : '';
+    if(back) back.style.opacity = String(Math.max(0, 1 - dy/Math.max(1,panel.offsetHeight)));
+    if(dy>6 && e.cancelable) e.preventDefault();
+  };
+  const end = ()=>{
+    if(!drag) return; drag=false;
+    const v = dy/Math.max(1, Date.now()-t0);
+    panel.style.transition='';
+    panel.style.transform='';
+    if(back) back.style.opacity='';
+    if(dy>60 || (v>0.5 && dy>20)) closeCatSheet();
+  };
+  panel.addEventListener('touchstart', start, {passive:true});
+  panel.addEventListener('touchmove', move, {passive:false});
+  panel.addEventListener('touchend', end);
+  panel.addEventListener('touchcancel', end);
+}
 function closeCatSheet(instant){
   document.querySelectorAll('#catSheetClosing').forEach(e=>e.remove());
   const el=document.getElementById('catSheet'); if(!el) return;
@@ -6487,6 +6689,7 @@ function openCatSheet(){
     <div class="cs-panel"><div class="cs-grab"></div><div class="cs-title">Semua kategori</div>
     <div class="cs-grid">${CATS.map(c=>`<div class="cat-tile" onclick="closeCatSheet();nav('cat-${c.id}')"><div class="ct-ic" style="${catNeon(c)}">${icoImg(c.id,c.em)}</div><div class="ct-nm">${c.nm}</div><div class="ct-ct">${c.tools.length} tools</div></div>`).join('')}</div></div>`;
   document.body.appendChild(el);
+  _sheetSwipe(el);
   requestAnimationFrame(()=>el.classList.add('open'));
 }
 
@@ -8345,7 +8548,29 @@ function renderSkorGame(){
     ${rows.length ? `<div class="pf-sb-grid">${rows.map(([k,v],i)=>sbCardHtml(k,v,i)).join('')}</div>` : `<div class="empty-state"><span class="em"><i class=svi-gamepad></i></span>Belum ada skor. Main game dulu yuk!</div>`}
   `;
 }
+/* popup pensil di profil: pilih Avatar (atas) atau Border (bawah) */
+function closeAvatarMenu(){
+  const el=document.getElementById('pfEditPop'); if(!el) return;
+  el.classList.remove('open');
+  setTimeout(()=>{ if(el.parentNode) el.remove(); }, 200);
+}
+function openAvatarMenu(){
+  const old=document.getElementById('pfEditPop'); if(old) old.remove();
+  const av=document.getElementById('profilAvatarImg');
+  const src = av && av.getAttribute('src') ? av.getAttribute('src') : avatarSrc('avatar-1');
+  const el=document.createElement('div');
+  el.id='pfEditPop'; el.className='pf-pop';
+  el.innerHTML = `<div class="pf-pop-back" onclick="closeAvatarMenu()"></div>
+    <div class="pf-pop-card">
+      <div class="pf-pop-h"><b>Ubah tampilan profil</b><span class="pf-pop-x" onclick="closeAvatarMenu()"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></span></div>
+      <div class="pf-pop-row" onclick="closeAvatarMenu();nav('avatar-shop')"><span class="pf-pop-th"><img src="${src}" alt="" onerror="this.style.display='none'"></span><span class="pf-pop-tx"><b>Avatar</b><span>Ganti atau beli avatar</span></span><i>›</i></div>
+      <div class="pf-pop-row" onclick="closeAvatarMenu();nav('border-shop')"><span class="pf-pop-th ring"></span><span class="pf-pop-tx"><b>Border</b><span>Ganti atau beli border</span></span><i>›</i></div>
+    </div>`;
+  document.body.appendChild(el);
+  requestAnimationFrame(()=>el.classList.add('open'));
+}
 function renderProfil(){
+  try{ checkAchievements(); }catch(e){} // buka achievement yang sudah memenuhi syarat (mis. achievement baru)
   const p = getProfile();
   const lv = calcLevel(p.xp);
   pruneGameScores();
@@ -8363,6 +8588,7 @@ function renderProfil(){
           <img loading="lazy" decoding="async" id="profilAvatarImg" class="avatar-current-lg" src="${avatarSrc('avatar-1')}" alt="Avatar" onerror="this.style.display='none'">
           <img id="profilBorderImg" class="border-overlay-lg" src="" alt="" onerror="this.classList.remove('show')">
         </div>
+        <button class="pf-edit" onclick="openAvatarMenu()" aria-label="Ubah avatar dan border"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4l10.5-10.5a2.1 2.1 0 0 0-3-3L5 17v3z"/><path d="M13.5 8.5l3 3"/></svg></button>
       </div>
       <div class="pf-hi">Masuk sebagai</div>
       <div class="pf-name">${isAdminSession()? '<i class=svi-tool></i> Admin (Sandrian)' : (currentUsername()||'-')}</div>
@@ -8370,10 +8596,6 @@ function renderProfil(){
       <div class="pf-xp">
         <div class="xp-bar-bg"><div class="xp-bar-fill" style="width:${pct}%"></div></div>
         <div class="pf-xpt">${lv.cur} / ${lv.need} XP menuju level ${lv.level+1}</div>
-      </div>
-      <div class="pf-actions">
-        <button class="btn secondary sm" onclick="nav('avatar-shop')">Ganti / Beli Avatar</button>
-        <button class="btn secondary sm" onclick="nav('border-shop')">Ganti / Beli Border</button>
       </div>
     </div>
     <div class="pf-stats">
@@ -8404,54 +8626,68 @@ function renderProfil(){
    Berlaku untuk SEMUA akun (user biasa maupun admin) karena keduanya sama-sama
    akun Firebase Authentication biasa — admin cuma dibedakan lewat flag
    isAdmin di dokumen Firestore-nya, bukan sistem login terpisah. */
+function akStrength(v){
+  const p=document.getElementById('akNewPass'); if(v===undefined&&p) v=p.value; v=v||'';
+  const ok=[v.length>=6,/[A-Z]/.test(v)&&/[a-z]/.test(v),/\d/.test(v),/[^A-Za-z0-9]/.test(v)], n=ok.filter(Boolean).length+(v.length>=10?1:0);
+  const L=[['0%','transparent'],['25%','#ef4444'],['45%','#f59e0b'],['65%','#eab308'],['85%','#22c55e'],['100%','#16a34a']][v?Math.max(1,n):0];
+  const bar=document.getElementById('akStrBar'); if(bar){bar.style.width=L[0];bar.style.background=L[1];}
+  document.querySelectorAll('#akReq span').forEach((e,i)=>e.classList.toggle('ok',ok[i]));
+  const q=document.getElementById('akNewPass2'), m=document.getElementById('akMatch');
+  if(m&&q){ m.textContent=q.value?(q.value===v?'Password cocok':'Password belum cocok'):''; m.style.color=q.value===v?'#16a34a':'#ef4444'; }
+}
 let _akSecLoading = false;
 function renderAkunKeamanan(){
   const admin = isAdminSession();
   return `
     <div class="back-link" onclick="nav('profil')">← Profil</div>
     <h1 class="page-title"><i class=svi-lock></i> Keamanan Akun</h1>
-    <p class="page-sub">${admin? 'Berlaku untuk akun admin ini juga — hubungkan email & ganti password lewat form yang sama.' : 'Hubungkan email supaya bisa reset password sendiri, dan ganti password kapan saja.'}</p>
-
-    <div class="section-label"><i class=svi-mail></i> Email Terhubung</div>
-    <div class="card">
-      <div style="font-size:12px;color:var(--muted);">Email saat ini</div>
-      <div id="akCurrentEmail" style="font-size:15px;font-weight:700;margin-top:2px;">Memuat...</div>
-      <div style="margin-top:14px;">
+    <div class="sc-top" id="akHero">
+      <div class="sc-ring"><svg viewBox="0 0 132 132"><circle class="tr" cx="66" cy="66" r="56" fill="none" stroke-width="11"/><circle class="pg" id="scPg" cx="66" cy="66" r="56" fill="none" stroke-width="11" stroke-linecap="round" stroke="var(--accent)" stroke-dasharray="351.9" stroke-dashoffset="351.9"/></svg>
+        <div class="sc-mid"><b id="scNum">…</b><span>Skor keamanan</span></div></div>
+      <h3 id="akHeroT">Memeriksa akun…</h3><p id="akHeroS">${admin?'Akun admin: ':''}Sebentar ya</p>
+    </div>
+    <div class="sc-item" id="scEmail"><div class="sc-hd" onclick="akToggle('scEmail')"><div class="sc-ic"><svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M3 8l9 6 9-6"/></svg></div><div class="sc-tx"><b>Email pemulihan</b><span id="akCurrentEmail">Memuat...</span></div><span class="sc-bd no" id="scEmailBd">…</span><span class="sc-ch">›</span></div>
+      <div class="sc-body">
         <label style="font-size:12px;color:var(--muted);">Email baru</label>
         <input type="email" id="akNewEmail" placeholder="nama@email.com" autocomplete="email">
-      </div>
-      <div style="margin-top:10px;">
-        <label style="font-size:12px;color:var(--muted);">Password saat ini (untuk verifikasi)</label>
-        <input type="password" id="akEmailPass" placeholder="Password sekarang" autocomplete="current-password">
-      </div>
-      <div id="akEmailMsg" class="small-note" style="margin-top:8px;"></div>
-      <button class="btn" style="margin-top:12px;" id="btnAkSaveEmail" onclick="doUpdateEmail()">Simpan Email</button>
-    </div>
-
-    <div class="section-label"><i class=svi-key></i> Ganti Password</div>
-    <div class="card">
-      <label style="font-size:12px;color:var(--muted);">Password lama</label>
-      <input type="password" id="akOldPass" placeholder="Password sekarang" autocomplete="current-password">
-      <div style="margin-top:10px;">
-        <label style="font-size:12px;color:var(--muted);">Password baru</label>
-        <input type="password" id="akNewPass" placeholder="Minimal 6 karakter" autocomplete="new-password">
-      </div>
-      <div style="margin-top:10px;">
-        <label style="font-size:12px;color:var(--muted);">Ulangi password baru</label>
-        <input type="password" id="akNewPass2" placeholder="Ulangi password baru" autocomplete="new-password">
-      </div>
-      <div id="akPassMsg" class="small-note" style="margin-top:8px;"></div>
-      <button class="btn" style="margin-top:12px;" id="btnAkSavePass" onclick="doUpdatePassword()">Ganti Password</button>
-    </div>
+        <div style="margin-top:10px;"><label style="font-size:12px;color:var(--muted);">Password saat ini (verifikasi)</label>
+        <input type="password" id="akEmailPass" placeholder="Password sekarang" autocomplete="current-password"></div>
+        <div id="akEmailMsg" class="small-note" style="margin-top:8px;"></div>
+        <button class="btn" style="margin-top:12px;" id="btnAkSaveEmail" onclick="doUpdateEmail()">Simpan Email</button></div></div>
+    <div class="sc-item" id="scPass"><div class="sc-hd" onclick="akToggle('scPass')"><div class="sc-ic"><svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M16 7l3 3M14 9l2 2"/></svg></div><div class="sc-tx"><b>Password</b><span>Ganti secara berkala, min. 6 karakter</span></div><span class="sc-ch">›</span></div>
+      <div class="sc-body">
+        <label style="font-size:12px;color:var(--muted);">Password lama</label>
+        <input type="password" id="akOldPass" placeholder="Password sekarang" autocomplete="current-password">
+        <div style="margin-top:10px;"><label style="font-size:12px;color:var(--muted);">Password baru</label>
+        <input type="password" id="akNewPass" placeholder="Minimal 6 karakter" autocomplete="new-password" oninput="akStrength(this.value)">
+        <div class="ak-str"><i id="akStrBar"></i></div><div class="ak-req" id="akReq"><span>6+ karakter</span><span>Huruf besar &amp; kecil</span><span>Angka</span><span>Simbol</span></div></div>
+        <div style="margin-top:10px;"><label style="font-size:12px;color:var(--muted);">Ulangi password baru</label>
+        <input type="password" id="akNewPass2" placeholder="Ulangi password baru" autocomplete="new-password" oninput="akStrength()"><div id="akMatch" class="small-note" style="margin-top:4px;"></div></div>
+        <div id="akPassMsg" class="small-note" style="margin-top:8px;"></div>
+        <button class="btn" style="margin-top:12px;" id="btnAkSavePass" onclick="doUpdatePassword()">Ganti Password</button></div></div>
+    <div class="section-label">Tips aman</div>
+    <div class="sc-tips"><div class="sc-tip"><b><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" stroke="#f5a623"><circle cx="7.5" cy="15.5" r="4.5"/><path d="M10.7 12.3L21 2"/><path d="M17 6l3 3"/><path d="M14 9l2.5 2.5"/></svg></b>Jangan bagikan password</div><div class="sc-tip"><b><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" stroke="#f97316"><path d="M17 2l4 4-4 4"/><path d="M3 11V9a3 3 0 0 1 3-3h15"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a3 3 0 0 1-3 3H3"/></svg></b>Ganti tiap beberapa bulan</div><div class="sc-tip"><b><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" stroke="#3b82f6"><rect x="2.5" y="4.5" width="19" height="15" rx="3"/><path d="M3 7l9 6.5L21 7"/></svg></b>Pakai email aktif</div></div>
   `;
 }
+function akToggle(id){ const e=document.getElementById(id); if(!e) return; const was=e.classList.contains('open'); document.querySelectorAll('.sc-item.open').forEach(x=>x.classList.remove('open')); if(!was) e.classList.add('open'); }
 async function loadAkunKeamanan(){
   const me = currentUsername();
   const el = document.getElementById('akCurrentEmail');
   if(!el) return;
   if(!me){ el.textContent = 'Tidak diketahui'; return; }
+  ['akEmailPass','akOldPass','akNewPass','akNewPass2'].forEach(id=>{ const i=document.getElementById(id); if(!i||i.parentNode.classList.contains('ak-pw')) return;
+    const w=document.createElement('div'); w.className='ak-pw'; i.parentNode.insertBefore(w,i); w.appendChild(i);
+    const b=document.createElement('button'); b.type='button'; b.className='ak-eye'; b.innerHTML='<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>'; b.onclick=()=>{ i.type=i.type==='password'?'text':'password'; }; w.appendChild(b); });
   const rec = await fsGetUser(me);
-  el.textContent = (rec && rec.email) ? rec.email : 'Belum ada email terhubung';
+  const has = !!(rec && rec.email);
+  el.textContent = has ? rec.email : 'Belum ada email terhubung';
+  const sc = 60 + (has?40:0), C=351.9, col = has?'#22c55e':'#f59e0b';
+  const pg=document.getElementById('scPg'); if(pg){ pg.style.stroke=col; pg.style.strokeDashoffset=C*(1-sc/100); }
+  document.getElementById('scNum').textContent=sc;
+  document.getElementById('akHeroT').textContent = has ? 'Akunmu terlindungi' : 'Akunmu belum aman';
+  document.getElementById('akHeroS').textContent = has ? 'Email terhubung, kamu bisa reset password sendiri.' : 'Hubungkan email supaya bisa reset password kalau lupa.';
+  const bd=document.getElementById('scEmailBd'); bd.textContent=has?'Terhubung':'Belum'; bd.classList.toggle('no',!has);
+  if(!has) akToggle('scEmail');
 }
 /* Re-auth wajib dilakukan sebelum updateEmail/updatePassword — Firebase
    menolak operasi ini ('auth/requires-recent-login') kalau sesi login
@@ -8656,9 +8892,14 @@ async function loadProfilAvatar(){
     if(rec && rec.border && rec.border !== 'none'){
       bimg.src = borderSrc(rec.border);
       bimg.classList.add('show');
+      const fr = bimg.parentElement;
+      if(fr && BORDER_FIT[rec.border]){ fr.style.cssText = borderFitStyle(rec.border); fr.classList.add('has-bfit'); }
+      else if(fr){ fr.style.cssText = ''; fr.classList.remove('has-bfit'); }
     }else{
       bimg.classList.remove('show');
       bimg.src = '';
+      const fr = bimg.parentElement;
+      if(fr){ fr.style.cssText = ''; fr.classList.remove('has-bfit'); }
     }
   }
 }
@@ -8708,7 +8949,7 @@ function renderAvatarShop(){
     <div class="card" style="margin-bottom:12px;">
       <button class="btn" id="avUploadBtn" onclick="document.getElementById('avFile').click()"><i class=svi-camera></i> Unggah Gambar Sendiri</button>
       <input type="file" id="avFile" accept="image/*" style="display:none;" onchange="uploadCustomAvatar(this)">
-      <p class="small-note" style="margin-top:8px;">Gambar otomatis dipotong persegi dari bagian tengah dan dikecilkan, jadi tidak perlu diedit dulu. Gambar baru akan menimpa gambar unggahan sebelumnya.</p>
+      <p class="small-note" style="margin-top:8px;">Setelah memilih gambar, kamu bisa geser dan zoom untuk mengatur potongan bulatnya. Gambar baru akan menimpa gambar unggahan sebelumnya.</p>
     </div>
     <div class="section-label">Avatar Kamu</div>
     <div class="avatar-grid" id="avOwnedGrid">${avatarOwnedGridHtml(owned, active, custom)}</div>
@@ -8743,28 +8984,77 @@ async function selectCustomAvatar(){
   else{ toast(res.msg || 'Gagal mengganti avatar'); }
 }
 
-/* Potong persegi dari tengah, kecilkan ke 192px, simpan JPEG (target < ~45KB) */
+/* Atur potongan avatar: dialog bulat, geser & zoom (cubit / slider / scroll), lalu simpan JPEG 192px (< ~45KB) */
 function makeAvatarDataUrl(file){
   return new Promise((resolve, reject)=>{
     const url = URL.createObjectURL(file);
     const im = new Image();
-    im.onload = ()=>{
-      try{
-        const SIZE = 192;
-        const side = Math.min(im.naturalWidth, im.naturalHeight);
-        if(!side){ URL.revokeObjectURL(url); return reject(new Error('Gambar kosong')); }
-        const sx = (im.naturalWidth - side)/2, sy = (im.naturalHeight - side)/2;
-        const cv = document.createElement('canvas'); cv.width = cv.height = SIZE;
-        const cx = cv.getContext('2d');
-        cx.fillStyle = '#ffffff'; cx.fillRect(0,0,SIZE,SIZE);   /* PNG transparan jadi latar putih */
-        cx.drawImage(im, sx, sy, side, side, 0, 0, SIZE, SIZE);
-        URL.revokeObjectURL(url);
-        let q = 0.85, out = cv.toDataURL('image/jpeg', q);
-        while(out.length > 60000 && q > 0.4){ q -= 0.1; out = cv.toDataURL('image/jpeg', q); }
-        resolve(out);
-      }catch(e){ URL.revokeObjectURL(url); reject(e); }
-    };
     im.onerror = ()=>{ URL.revokeObjectURL(url); reject(new Error('File bukan gambar yang bisa dibuka')); };
+    im.onload = ()=>{
+      const W = im.naturalWidth, H = im.naturalHeight;
+      if(!W || !H){ URL.revokeObjectURL(url); return reject(new Error('Gambar kosong')); }
+      const S = Math.max(200, Math.min(300, window.innerWidth - 72));
+      const minK = S / Math.min(W, H), maxK = minK * 5;
+      let k = minK, tx = (S - W*k)/2, ty = (S - H*k)/2;
+      const ov = document.createElement('div');
+      ov.style.cssText = 'position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;padding:16px;';
+      ov.innerHTML =
+        '<div style="width:100%;max-width:360px;background:var(--surface,#1b1b2b);color:var(--text,#fff);border-radius:20px;padding:18px 16px 16px;text-align:center;box-shadow:0 10px 40px rgba(0,0,0,.5);">'+
+          '<div style="font-weight:800;font-size:16px;">Atur Potongan Avatar</div>'+
+          '<div style="font-size:12px;opacity:.7;margin:4px 0 12px;">Geser dan cubit/zoom sampai pas di dalam lingkaran</div>'+
+          '<div id="acStage" style="position:relative;width:'+S+'px;height:'+S+'px;margin:0 auto;overflow:hidden;border-radius:50%;background:#000;touch-action:none;cursor:grab;box-shadow:0 0 0 3px var(--accent,#8b5cf6);">'+
+            '<img id="acImg" alt="" draggable="false" style="position:absolute;left:0;top:0;max-width:none;width:'+W+'px;height:'+H+'px;transform-origin:0 0;user-select:none;-webkit-user-drag:none;pointer-events:none;">'+
+          '</div>'+
+          '<input id="acZoom" type="range" min="0" max="100" value="0" style="width:'+S+'px;margin:14px 0 4px;">'+
+          '<div style="display:flex;gap:10px;margin-top:10px;">'+
+            '<button id="acCancel" class="btn secondary" style="flex:1;">Batal</button>'+
+            '<button id="acOk" class="btn" style="flex:1;">Pakai</button>'+
+          '</div>'+
+        '</div>';
+      document.body.appendChild(ov);
+      const stage = ov.querySelector('#acStage'), img = ov.querySelector('#acImg'), zoom = ov.querySelector('#acZoom');
+      img.src = url;
+      function clamp(){ tx = Math.min(0, Math.max(S - W*k, tx)); ty = Math.min(0, Math.max(S - H*k, ty)); }
+      function apply(){ clamp(); img.style.transform = 'translate('+tx+'px,'+ty+'px) scale('+k+')'; zoom.value = Math.round((k - minK)/(maxK - minK)*100); }
+      function zoomTo(nk, fx, fy){
+        nk = Math.min(maxK, Math.max(minK, nk));
+        const ix = (fx - tx)/k, iy = (fy - ty)/k;
+        k = nk; tx = fx - ix*k; ty = fy - iy*k; apply();
+      }
+      apply();
+      zoom.oninput = ()=> zoomTo(minK + (maxK - minK)*zoom.value/100, S/2, S/2);
+      stage.addEventListener('wheel', e=>{ e.preventDefault(); const r = stage.getBoundingClientRect(); zoomTo(k*(e.deltaY<0?1.1:1/1.1), e.clientX-r.left, e.clientY-r.top); }, {passive:false});
+      const pts = new Map(); let lastDist = 0;
+      stage.addEventListener('pointerdown', e=>{ stage.setPointerCapture(e.pointerId); pts.set(e.pointerId,{x:e.clientX,y:e.clientY}); lastDist = 0; stage.style.cursor='grabbing'; });
+      stage.addEventListener('pointermove', e=>{
+        if(!pts.has(e.pointerId)) return;
+        const prev = pts.get(e.pointerId), cur = {x:e.clientX,y:e.clientY};
+        if(pts.size === 1){ tx += cur.x - prev.x; ty += cur.y - prev.y; pts.set(e.pointerId, cur); apply(); }
+        else{
+          pts.set(e.pointerId, cur);
+          const [a,b] = [...pts.values()], d = Math.hypot(a.x-b.x, a.y-b.y);
+          const r = stage.getBoundingClientRect(), mx = (a.x+b.x)/2 - r.left, my = (a.y+b.y)/2 - r.top;
+          if(lastDist) zoomTo(k*d/lastDist, mx, my);
+          lastDist = d;
+        }
+      });
+      const up = e=>{ pts.delete(e.pointerId); lastDist = 0; stage.style.cursor='grab'; };
+      stage.addEventListener('pointerup', up); stage.addEventListener('pointercancel', up);
+      function close(){ ov.remove(); URL.revokeObjectURL(url); }
+      ov.querySelector('#acCancel').onclick = ()=>{ close(); const er = new Error('Dibatalkan'); er.cancel = true; reject(er); };
+      ov.querySelector('#acOk').onclick = ()=>{
+        try{
+          const SIZE = 192, side = S/k;
+          const cv = document.createElement('canvas'); cv.width = cv.height = SIZE;
+          const cx = cv.getContext('2d');
+          cx.fillStyle = '#ffffff'; cx.fillRect(0,0,SIZE,SIZE);   /* PNG transparan jadi latar putih */
+          cx.drawImage(im, -tx/k, -ty/k, side, side, 0, 0, SIZE, SIZE);
+          let q = 0.85, out = cv.toDataURL('image/jpeg', q);
+          while(out.length > 60000 && q > 0.4){ q -= 0.1; out = cv.toDataURL('image/jpeg', q); }
+          close(); resolve(out);
+        }catch(e){ close(); reject(e); }
+      };
+    };
     im.src = url;
   });
 }
@@ -8786,8 +9076,10 @@ async function uploadCustomAvatar(input){
       loadAvatarShop();
     }else{ toast(res.msg || 'Gagal menyimpan avatar'); }
   }catch(e){
-    console.error(e);
-    toast('Gagal memproses gambar: ' + (e && e.message ? e.message : 'coba gambar lain'));
+    if(!(e && e.cancel)){
+      console.error(e);
+      toast('Gagal memproses gambar: ' + (e && e.message ? e.message : 'coba gambar lain'));
+    }
   }finally{
     const b = document.getElementById('avUploadBtn');
     if(b){ b.disabled = false; b.innerHTML = safeIc('<i class=svi-camera></i> Unggah Gambar Sendiri'); }
@@ -8822,7 +9114,7 @@ function borderOwnedGridHtml(owned, active, myAvatar){
   `;
   return noneCard + owned.map(id => `
     <div class="border-item ${id===active?'selected':''}" onclick="selectBorder('${id}')">
-      <div class="border-preview">
+      <div class="border-preview${BORDER_FIT[id]?' has-bfit':''}" style="${borderFitStyle(id)}">
         <img loading="lazy" decoding="async" class="b-avatar" src="${avatarSrc(myAvatar)}" alt="" onerror="this.style.opacity='0.2'">
         <img loading="lazy" decoding="async" class="b-border" src="${borderSrc(id)}" alt="${id}" onerror="this.style.opacity='0.2'">
       </div>
@@ -8838,7 +9130,7 @@ function borderShopGridHtml(owned, myAvatar){
     const isOwned = owned.includes(b.id);
     return `
       <div class="border-item shop">
-        <div class="border-preview">
+        <div class="border-preview${BORDER_FIT[b.id]?' has-bfit':''}" style="${borderFitStyle(b.id)}">
           <img loading="lazy" decoding="async" class="b-avatar" src="${avatarSrc(myAvatar)}" alt="" onerror="this.style.opacity='0.2'">
           <img loading="lazy" decoding="async" class="b-border" src="${borderSrc(b.id)}" alt="${b.nm}" onerror="this.style.opacity='0.2'">
         </div>
@@ -8911,8 +9203,8 @@ function _mqItem(onclick, icon, c1, c2, title, desc, extra){
 }
 function openMenu(){
   const d = document.getElementById('menuDrawer');
-  d.innerHTML = `<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">${_logoSvg(44)}<div><div style="font-weight:800;font-size:19px;line-height:1.1;font-family:var(--font-display);">SANN Toolbox</div><div style="font-size:11px;color:var(--muted);margin-top:3px;">Semua kebutuhanmu ada di sini</div></div></div>` +
-    `<div class="menu-search"><span style="display:flex;color:var(--muted);">${_mic('search',18)}</span><input id="menuSearchInput" type="text" placeholder="Cari tools..." autocomplete="off" oninput="menuSearch(this.value)"></div>` +
+  d.innerHTML = `<div class="md-head">${_logoSvg(42)}<div class="md-t"><div class="md-nm">SANN Toolbox</div><div class="md-sb">Semua kebutuhanmu ada di sini</div></div><div class="md-close" onclick="closeMenu()" aria-label="Tutup"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></div></div>` +
+    `<div class="menu-search"><span style="display:flex;color:var(--muted);">${_mic('search',20)}</span><input id="menuSearchInput" type="text" placeholder="Cari tools..." autocomplete="off" oninput="menuSearch(this.value)"></div>` +
     `<div id="menuSearchResults"></div>` +
     `<div class="menu-quick">` +
     _mqItem("closeMenu();openMusicPicker()",'music','#ff5fa2','#ff9a3c','Ganti Musik Latar','Pilih lagu pengiring') +
@@ -8922,9 +9214,15 @@ function openMenu(){
     _mqItem("nav('info-update')",'bell','#4f8dff','#8a5cff','Informasi Update','Kabar terbaru aplikasi',
       `<span class="menu-notif-badge" id="menuItemUpdateBadge" style="display:${_menuUpdateUnseenCount>0?'inline-block':'none'};">${_menuUpdateUnseenCount>9?'9+':_menuUpdateUnseenCount}</span>`) +
     `</div>` +
-    CATS.map(c=>`<div class="menu-group tex-${menuTex(c.id)}"><div class="menu-cat" style="background:${CAT_COLORS[c.id]||'linear-gradient(135deg,var(--accent),var(--accent2))'}"><span class="menu-ic">${icoImg(c.id,c.em)}</span>${c.nm}</div>` + c.tools.map(t=>`<div class="menu-item" onclick="nav('tool-${t.id}')"><span class="menu-ic">${icoImg(t.id,t.em)}</span>${t.nm}</div>`).join('') + `</div>`).join('');
+    `<div class="md-sec">Kategori</div>` +
+    CATS.map(c=>`<div class="menu-group"><div class="menu-cat" onclick="menuToggleGroup(this.parentNode)"><span class="menu-ic mc-ic" style="background:${CAT_COLORS[c.id]||'linear-gradient(135deg,var(--accent),var(--accent2))'}">${icoImg(c.id,c.em)}</span><span class="mc-nm">${c.nm}</span><span class="mc-ct">${c.tools.length}</span><span class="mc-chev">${_mic('chev',18)}</span></div><div class="mg-body">` + c.tools.map(t=>`<div class="menu-item" onclick="nav('tool-${t.id}')"><span class="menu-ic">${icoImg(t.id,t.em)}</span><span class="mi-nm">${t.nm}</span></div>`).join('') + `</div></div>`).join('');
   d.classList.add('show');
   document.getElementById('menuOverlay').classList.add('show');
+}
+function menuToggleGroup(g){
+  const was = g.classList.contains('open');
+  document.querySelectorAll('#menuDrawer .menu-group.open').forEach(x=>x.classList.remove('open'));
+  if(!was){ g.classList.add('open'); setTimeout(()=>{ try{ g.scrollIntoView({block:'nearest',behavior:'smooth'}); }catch(e){} }, 30); }
 }
 function menuSearch(q){
   q = (q||'').trim().toLowerCase();
@@ -13313,32 +13611,44 @@ TOOL_RENDERERS['recent'] = (el)=>{
 };
 
 TOOL_RENDERERS['backup'] = (el)=>{
+  let _bkN=0,_bkL=0,_bkR=[]; try{ for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k.startsWith('sann_')){ const n=(localStorage.getItem(k)||'').length+k.length; _bkN++; _bkL+=n; _bkR.push([k.slice(5),n]); } } }catch(e){}
+  _bkR.sort((x,y)=>y[1]-x[1]); const _bkT=_bkR.slice(0,6), _bkM=(_bkT[0]||[0,1])[1], _kb=n=>n>1024?(n/1024).toFixed(1)+' KB':n+' B';
+  const _lb=DB.get('lastBackup',0), _lbT=_lb?new Date(_lb).toLocaleString('id-ID',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'Belum pernah';
   el.innerHTML = `
-    <div class="card">
-      <p style="font-size:13px;color:var(--muted);margin:0 0 12px;">Cadangkan semua data (catatan, todo, skor, profil, dll) lalu pulihkan di HP/app lain. Kalau unduh file susah, pakai cara "Kode Backup" — lebih gampang, tinggal salin-tempel.</p>
-      <b style="font-size:13px;"><i class=svi-copy></i> Kode Backup (disarankan)</b>
-      <p style="font-size:12px;color:var(--muted);margin:4px 0 8px;">Tekan tombol di bawah buat nyalin semua data jadi kode teks. Tempel kode itu di app/HP tujuan lewat kotak "Impor" di bawah.</p>
-      <button class="btn" id="bkCopyCode"><i class=svi-copy></i> Salin Kode Backup</button>
-      <button class="btn secondary" id="bkShareCode" style="margin-top:8px;"><i class=svi-upload></i> Bagikan Kode (simpan ke catatan/chat)</button>
-      <textarea id="bkCodeOut" readonly onfocus="this.select()" style="width:100%;height:70px;margin-top:8px;font-size:10px;font-family:monospace;opacity:.8;" placeholder="Kode backup akan muncul di sini setelah ditekan tombol di atas..."></textarea>
-      <div id="bkCopyNote" style="font-size:11.5px;color:var(--muted);margin-top:6px;"></div>
-      <div class="divider"></div>
-      <b style="font-size:13px;"><i class=svi-download></i> Impor dari Kode</b>
-      <p style="font-size:12px;color:var(--muted);margin:4px 0 8px;">Tempel kode backup yang pernah kamu salin di sini.</p>
-      <textarea id="bkImportText" style="width:100%;height:70px;font-size:10px;font-family:monospace;" placeholder="Tempel kode backup di sini..."></textarea>
-      <button class="btn" id="bkImportCode" style="margin-top:8px;"><i class=svi-download></i> Pulihkan dari Kode</button>
-      <div class="divider"></div>
-      <b style="font-size:13px;"><i class=svi-save></i> Cara File (opsional)</b>
-      <button class="btn secondary" id="bkExport" style="margin-top:8px;"><i class=svi-save></i> Ekspor ke File</button>
-      <div style="margin-top:10px;">
-        <label for="bkImport" class="btn secondary" style="display:block;text-align:center;cursor:pointer;"><i class=svi-folder></i> Pilih File & Impor</label>
-        <input type="file" id="bkImport" accept=".json" style="display:none;">
-      </div>
+    <div class="nw-hero"><div class="ic"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M4 20h16"/></svg></div><div><b>Cadangkan &amp; Pulihkan</b><span>Pindahkan semua datamu ke HP lain dengan aman.</span></div></div>
+    <div class="nw-chips"><div class="nw-chip"><b>${_bkN}</b><span>Data</span></div><div class="nw-chip"><b>${_kb(_bkL)}</b><span>Ukuran</span></div><div class="nw-chip"><b style="font-size:12px">${_lbT}</b><span>Cadangan terakhir</span></div></div>
+    <div class="nw-seg" id="bkTabs"><button class="on" data-t="b">Cadangkan</button><button data-t="r">Pulihkan</button></div>
+    <div data-pane="b">
+      <div class="card nw-card"><div class="nw-h"><b>Isi cadangan terbesar</b></div>${_bkT.map(([k,n])=>`<div class="nw-row"><span>${k}</span><i style="width:${Math.max(4,n/_bkM*45)}%"></i><em>${_kb(n)}</em></div>`).join('')}</div>
+      <div class="card nw-card"><div class="nw-h"><span class="nw-n">1</span><b>Salin Kode Backup</b><em>Disarankan</em></div>
+        <p class="nw-p">Salin semua data jadi kode teks, lalu tempel di HP tujuan pada tab Pulihkan.</p>
+        <button class="btn" id="bkCopyCode"><i class=svi-copy></i> Salin Kode Backup</button>
+        <button class="btn secondary" id="bkShareCode" style="margin-top:8px;"><i class=svi-upload></i> Bagikan Kode</button>
+        <textarea id="bkCodeOut" readonly onfocus="this.select()" style="width:100%;height:70px;margin-top:8px;font-size:10px;font-family:monospace;opacity:.8;" placeholder="Kode backup akan muncul di sini..."></textarea>
+        <div id="bkCopyNote" style="font-size:11.5px;color:var(--muted);margin-top:6px;"></div></div>
+      <div class="card nw-card"><div class="nw-h"><span class="nw-n">2</span><b>Ekspor ke File</b><em>Opsional</em></div>
+        <button class="btn secondary" id="bkExport"><i class=svi-save></i> Ekspor ke File</button></div>
+    </div>
+    <div data-pane="r" style="display:none">
+      <div class="card nw-card"><div class="nw-h"><span class="nw-n">1</span><b>Tempel Kode</b></div>
+        <textarea id="bkImportText" style="width:100%;height:90px;font-size:10px;font-family:monospace;" placeholder="Tempel kode backup di sini..."></textarea>
+        <div id="bkPrev" class="small-note" style="margin-top:6px;">Kode akan diperiksa otomatis.</div>
+        <button class="btn" id="bkImportCode" style="margin-top:8px;" disabled><i class=svi-download></i> Pulihkan Sekarang</button>
+        <div class="small-note" style="margin-top:6px;">Data dengan nama yang sama di HP ini akan ditimpa.</div></div>
+      <div class="card nw-card"><div class="nw-h"><span class="nw-n">2</span><b>Atau Pilih File</b></div>
+        <label for="bkImport" class="btn secondary" style="display:block;text-align:center;cursor:pointer;"><i class=svi-folder></i> Pilih File &amp; Impor</label>
+        <input type="file" id="bkImport" accept=".json" style="display:none;"></div>
     </div>
   `;
+  el.querySelectorAll('#bkTabs button').forEach(t=>t.onclick=()=>{ el.querySelectorAll('#bkTabs button').forEach(x=>x.classList.toggle('on',x===t)); el.querySelectorAll('[data-pane]').forEach(p=>p.style.display=p.dataset.pane===t.dataset.t?'':'none'); });
+  (function(){ const ta=el.querySelector('#bkImportText'), pv=el.querySelector('#bkPrev'), bt=el.querySelector('#bkImportCode');
+    ta.oninput=()=>{ const v=ta.value.trim(); bt.disabled=true; if(!v){ pv.textContent='Kode akan diperiksa otomatis.'; return; }
+      try{ const o=JSON.parse(v); const ks=Object.keys(o).filter(k=>k.startsWith('sann_')); if(!ks.length) throw 0; pv.innerHTML='<i class=svi-check></i> Kode valid: '+ks.length+' data, '+_kb(v.length); bt.disabled=false; }
+      catch(e){ pv.textContent='Kode belum valid atau tidak lengkap.'; } }; })();
   function collectAll(){
     let all = {};
     for(let i=0;i<localStorage.length;i++){ const k = localStorage.key(i); if(k.startsWith('sann_')) all[k]=localStorage.getItem(k); }
+    try{ DB.set('lastBackup',Date.now()); }catch(e){}
     return all;
   }
   function restoreAll(data){
@@ -13711,7 +14021,10 @@ TOOL_RENDERERS['set-warna'] = (el)=>{
   const presets = [
     ['Default','#6f8dff','#a855f7'],['Laut','#22d3ee','#6f8dff'],['Senja','#f2a541','#ff5e62'],
     ['Api','#ff7847','#f43f5e'],['Mawar','#f87171','#ec4899'],['Mint','#4ade80','#22d3ee'],
-    ['Permen','#a78bfa','#f472b6'],['Mentari','#facc15','#f97316'],['Tropis','#34d399','#3b82f6'],['Langit','#0ea5e9','#6366f1']
+    ['Permen','#a78bfa','#f472b6'],['Mentari','#facc15','#f97316'],['Tropis','#34d399','#3b82f6'],['Langit','#0ea5e9','#6366f1'],
+    ['Anggur','#8b5cf6','#d946ef'],['Zaitun','#84cc16','#16a34a'],['Karang','#fb7185','#fdba74'],['Safir','#2563eb','#1e40af'],
+    ['Emas','#fbbf24','#d97706'],['Giok','#14b8a6','#059669'],['Fajar','#f472b6','#fb923c'],['Es','#67e8f9','#a5b4fc'],
+    ['Ceri','#e11d48','#be123c'],['Grafit','#94a3b8','#475569']
   ];
   function draw(){
     const c1 = DB.get('accent', '#6f8dff');
@@ -14942,7 +15255,16 @@ TOOL_RENDERERS['set-tema-siap'] = (el)=>{
     {nm:'Permen',em:'🍬',a:'#db2777',b:'#8b5cf6',bg:'permen',light:1},
     {nm:'Persik',em:'🍑',a:'#ea580c',b:'#e11d48',bg:'persik',light:1},
     {nm:'Sakura Pagi',em:'🌷',a:'#e11d48',b:'#a855f7',bg:'sakura',light:1},
-    {nm:'Pelangi',em:'🌈',a:'#f97316',b:'#14b8a6',bg:'pelangi',light:1}
+    {nm:'Pelangi',em:'🌈',a:'#f97316',b:'#14b8a6',bg:'pelangi',light:1},
+    {nm:'Safir',em:'🔷',a:'#60a5fa',b:'#818cf8',bg:'safir'},
+    {nm:'Anggur Malam',em:'🍇',a:'#d946ef',b:'#8b5cf6',bg:'anggur'},
+    {nm:'Kopi Susu',em:'☕',a:'#f59e0b',b:'#ea580c',bg:'kopi'},
+    {nm:'Arang',em:'⚫',a:'#94a3b8',b:'#22d3ee',bg:'arang'},
+    {nm:'Galaksi Ungu',em:'🪐',a:'#818cf8',b:'#ec4899',bg:'galaksi'},
+    {nm:'Fajar',em:'🌅',a:'#f43f5e',b:'#f97316',bg:'fajar',light:1},
+    {nm:'Pantai',em:'🏖️',a:'#0284c7',b:'#d97706',bg:'pantai',light:1},
+    {nm:'Kapas',em:'🤍',a:'#4f46e5',b:'#0ea5e9',bg:'kapas',light:1},
+    {nm:'Melon',em:'🍈',a:'#16a34a',b:'#65a30d',bg:'melon',light:1}
   ];
   function draw(){
     const cur = (DB.get('accent','')||'').toLowerCase();
@@ -18017,7 +18339,14 @@ TOOL_RENDERERS['g-tebaknegara'] = (el)=>{
 
 /* Batu Gunting Kertas */
 TOOL_RENDERERS['g-rps'] = (el)=>{
-  const emoji = {batu:'🪨', gunting:'✂️', kertas:'📄'};
+  const RPS_SVG = {
+    batu:'<svg viewBox="0 0 64 64" aria-hidden="true"><path d="M9 43 15 24 30 12 47 16 57 30 55 47 40 56 21 56Z" fill="#9aa3b2"/><path d="M15 24 30 12 47 16 41 30 24 33Z" fill="#cdd3de"/><path d="M47 16 57 30 55 47 40 56 41 30Z" fill="#6f788a"/><path d="M9 43 24 33 41 30 40 56 21 56Z" fill="#8791a3"/><path d="M24 33 28 42 23 50" fill="none" stroke="#475064" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><ellipse cx="27" cy="21" rx="6" ry="2.6" fill="#fff" opacity=".55" transform="rotate(-20 27 21)"/><path d="M9 43 15 24 30 12 47 16 57 30 55 47 40 56 21 56Z" fill="none" stroke="#3b4456" stroke-width="3" stroke-linejoin="round"/></svg>',
+    gunting:'<svg viewBox="0 0 64 64" aria-hidden="true"><g stroke-linecap="round" fill="none"><path d="M19 7 42 45M45 7 22 45" stroke="#3b4456" stroke-width="10"/><path d="M19 7 42 45M45 7 22 45" stroke="#e8edf5" stroke-width="6"/><path d="M19 7 41 43M45 7 23 43" stroke="#fff" stroke-width="1.8" opacity=".8"/><circle cx="46" cy="52" r="7" stroke="#7f1d1d" stroke-width="9"/><circle cx="18" cy="52" r="7" stroke="#7f1d1d" stroke-width="9"/><circle cx="46" cy="52" r="7" stroke="#ef4444" stroke-width="5"/><circle cx="18" cy="52" r="7" stroke="#ef4444" stroke-width="5"/></g><circle cx="32" cy="29" r="3.6" fill="#3b4456"/><circle cx="31.2" cy="28.2" r="1.2" fill="#fff" opacity=".7"/></svg>',
+    kertas:'<svg viewBox="0 0 64 64" aria-hidden="true"><path d="M14 6H41L53 18V58H14Z" fill="#eef4ff" stroke="#3b4456" stroke-width="3" stroke-linejoin="round"/><path d="M41 6V18H53Z" fill="#c3d2ea" stroke="#3b4456" stroke-width="3" stroke-linejoin="round"/><path d="M22 29H45M22 37H45M22 45H36" stroke="#8aa0c4" stroke-width="3.2" stroke-linecap="round"/></svg>',
+    fist:'<svg viewBox="0 0 64 64" aria-hidden="true"><rect x="18" y="49" width="28" height="12" rx="3" fill="#3b82f6" stroke="#1e3a8a" stroke-width="3"/><path d="M13 30c0-4 2-6 5-6h1c1-3 3-4 5-4s4 1 5 3c1-2 3-3 5-3s4 1 5 3c1-1 3-2 4-2 3 0 5 2 5 6v13c0 6-4 10-10 10H23c-6 0-10-4-10-10Z" fill="#ffd9a8" stroke="#7a4a1d" stroke-width="3" stroke-linejoin="round"/><path d="M24 24v10M34 23v10M44 25v9" stroke="#7a4a1d" stroke-width="2.6" stroke-linecap="round"/></svg>',
+    q:'<svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="27" fill="#e2e8f0" stroke="#94a3b8" stroke-width="3"/><path d="M23 25c0-6 4-9 9-9s9 3 9 8c0 6-9 6-9 13" fill="none" stroke="#64748b" stroke-width="5.5" stroke-linecap="round"/><circle cx="32" cy="47.5" r="3.6" fill="#64748b"/></svg>'
+  };
+  const emoji = {batu:RPS_SVG.batu, gunting:RPS_SVG.gunting, kertas:RPS_SVG.kertas};
   const KEYS = ['batu','gunting','kertas'];
   const beatenBy = {batu:'kertas', gunting:'batu', kertas:'gunting'}; // pilihan yang mengalahkan key
   const MODES = [['inf','Bebas'],['3','Best of 3'],['5','Best of 5']];
@@ -18065,7 +18394,7 @@ TOOL_RENDERERS['g-rps'] = (el)=>{
     el.querySelectorAll('#rpsBtns .btn').forEach(b=>b.onclick=()=>play(b.dataset.k));
     $('#rpsAgain').onclick = ()=>{ resetMatch(); shell(); };
     $('#rpsReset').onclick = ()=>{ resetMatch(); shell(); };
-    setArena('❔','❔','','');
+    setArena(RPS_SVG.q,RPS_SVG.q,'','');
     updateStats();
   }
   function resetMatch(){ gen++; win=lose=tie=streak=0; over=false; busy=false; }
@@ -18094,7 +18423,7 @@ TOOL_RENDERERS['g-rps'] = (el)=>{
     const g=gen, comp=compPick();
     history.push(choice);
     playSfx('select',1.1);
-    setArena('✊','✊','','shake');
+    setArena(RPS_SVG.fist,RPS_SVG.fist,'','shake');
     const words=['Batu...','Gunting...','Kertas!'];
     $('#rpsMsg').textContent = words[0];
     let step=0;
@@ -18213,7 +18542,7 @@ TOOL_RENDERERS['g-ttt'] = (el)=>{
           <div class="chev">›</div>
         </div>
         <div class="tool-row" id="tttPickPlayer">
-          <div class="em">🧑‍<i class=svi-handshake></i>‍🧑</div>
+          <div class="em"><i class=svi-handshake></i></div>
           <div class="tx"><div class="nm">VS Player</div><div class="ds">Main gantian sama temen di 1 HP</div></div>
           <div class="chev">›</div>
         </div>
@@ -18351,7 +18680,23 @@ TOOL_RENDERERS['g-ttt'] = (el)=>{
 
 /* Memory Card */
 TOOL_RENDERERS['g-memory'] = (el)=>{
-  const POOL = ['🍎','🍌','🍇','🍉','🍓','🍒','🍑','🥝','🍍','🥥','🍋','🥭','🍐','🍊','🥕'];
+  const POOL = [
+    '<svg viewBox="0 0 64 64" aria-hidden="true"><path d="M32 21c-5-4-18-4-18 13 0 13 8 24 18 24s18-11 18-24c0-17-13-17-18-13z" fill="#e53e3e"/><path d="M32 21c0-5 2-9 5-12" fill="none" stroke="#6b4423" stroke-width="3" stroke-linecap="round"/><path d="M35 15c4-5 11-5 13-4-1 5-8 8-13 4z" fill="#4caf50"/><ellipse cx="22" cy="34" rx="3" ry="6" fill="#fff" opacity=".35"/></svg>',
+    '<svg viewBox="0 0 64 64" aria-hidden="true"><path d="M10 40c3 12 22 17 37 4 7-6 9-16 9-26l-7 2c0 9-3 15-9 20-9 8-21 7-24-1z" fill="#ffd43b"/><path d="M10 40c3 12 22 17 37 4" fill="none" stroke="#e0a800" stroke-width="2.4" stroke-linecap="round"/><path d="M49 17l7-3 1 6-7 2z" fill="#7a5230"/></svg>',
+    '<svg viewBox="0 0 64 64" aria-hidden="true"><g fill="#7c3aed"><circle cx="20" cy="28" r="7.5"/><circle cx="32" cy="28" r="7.5"/><circle cx="44" cy="28" r="7.5"/><circle cx="26" cy="39" r="7.5"/><circle cx="38" cy="39" r="7.5"/><circle cx="32" cy="50" r="7.5"/></g><g fill="#fff" opacity=".4"><circle cx="18" cy="26" r="2"/><circle cx="30" cy="26" r="2"/><circle cx="42" cy="26" r="2"/><circle cx="24" cy="37" r="2"/><circle cx="36" cy="37" r="2"/></g><path d="M32 21v-9" stroke="#6b4423" stroke-width="3" stroke-linecap="round"/><path d="M33 14c4-5 11-5 14-3-2 6-9 8-14 3z" fill="#4caf50"/></svg>',
+    '<svg viewBox="0 0 64 64" aria-hidden="true"><g transform="translate(0,7)"><path d="M5 26a27 27 0 0 0 54 0z" fill="#3fa34d"/><path d="M9 26a23 23 0 0 0 46 0z" fill="#e8f5e9"/><path d="M12 26a20 20 0 0 0 40 0z" fill="#f0506e"/><g fill="#2b2b2b"><ellipse cx="22" cy="34" rx="1.6" ry="2.6" transform="rotate(-20 22 34)"/><ellipse cx="32" cy="38" rx="1.6" ry="2.6"/><ellipse cx="42" cy="34" rx="1.6" ry="2.6" transform="rotate(20 42 34)"/><ellipse cx="27" cy="45" rx="1.6" ry="2.6" transform="rotate(-12 27 45)"/><ellipse cx="37" cy="46" rx="1.6" ry="2.6" transform="rotate(12 37 46)"/></g></g></svg>',
+    '<svg viewBox="0 0 64 64" aria-hidden="true"><path d="M32 57C17 49 9 35 11 25c1-7 9-10 21-10s20 3 21 10c2 10-6 24-21 32z" fill="#f43f5e"/><path d="M19 21l13-7 13 7-13-2z" fill="#43a047"/><path d="M32 10v8" stroke="#43a047" stroke-width="3.2" stroke-linecap="round"/><g fill="#ffe08a"><ellipse cx="23" cy="30" rx="1.5" ry="2.4"/><ellipse cx="34" cy="28" rx="1.5" ry="2.4"/><ellipse cx="43" cy="33" rx="1.5" ry="2.4"/><ellipse cx="28" cy="39" rx="1.5" ry="2.4"/><ellipse cx="38" cy="43" rx="1.5" ry="2.4"/><ellipse cx="31" cy="49" rx="1.5" ry="2.4"/></g></svg>',
+    '<svg viewBox="0 0 64 64" aria-hidden="true"><path d="M22 38C24 24 30 14 41 10M45 36c0-10 0-18-4-26" fill="none" stroke="#5b8c3a" stroke-width="3" stroke-linecap="round"/><circle cx="22" cy="46" r="11" fill="#d90429"/><circle cx="45" cy="44" r="11" fill="#e5383b"/><path d="M41 10c6-4 12-3 15-1-3 6-10 7-15 1z" fill="#4caf50"/><ellipse cx="18" cy="42" rx="2.6" ry="4" fill="#fff" opacity=".4"/><ellipse cx="41" cy="40" rx="2.6" ry="4" fill="#fff" opacity=".4"/></svg>',
+    '<svg viewBox="0 0 64 64" aria-hidden="true"><path d="M32 19c-5-5-21-4-21 15 0 13 9 22 21 22s21-9 21-22c0-19-16-20-21-15z" fill="#ffab91"/><path d="M32 19c-3 14 0 28 0 37" fill="none" stroke="#ef8a6c" stroke-width="2.6" stroke-linecap="round"/><path d="M33 17c4-6 12-6 15-4-2 6-9 8-15 4z" fill="#4caf50"/><ellipse cx="20" cy="33" rx="3" ry="6" fill="#fff" opacity=".35"/></svg>',
+    '<svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="25" fill="#8d6e3f"/><circle cx="32" cy="32" r="21" fill="#7cb342"/><ellipse cx="32" cy="32" rx="8" ry="9" fill="#f1f8e9"/><g fill="#1c1c1c"><ellipse cx="46" cy="32" rx="1.5" ry="2.4"/><ellipse cx="42" cy="42" rx="1.5" ry="2.4" transform="rotate(45 42 42)"/><ellipse cx="32" cy="46" rx="2.4" ry="1.5"/><ellipse cx="22" cy="42" rx="1.5" ry="2.4" transform="rotate(-45 22 42)"/><ellipse cx="18" cy="32" rx="1.5" ry="2.4"/><ellipse cx="22" cy="22" rx="1.5" ry="2.4" transform="rotate(45 22 22)"/><ellipse cx="32" cy="18" rx="2.4" ry="1.5"/><ellipse cx="42" cy="22" rx="1.5" ry="2.4" transform="rotate(-45 42 22)"/></g></svg>',
+    '<svg viewBox="0 0 64 64" aria-hidden="true"><path d="M24 25 22 9l7 7 3-12 3 12 7-7-2 16z" fill="#43a047"/><ellipse cx="32" cy="42" rx="16" ry="19" fill="#ffb300"/><path d="M21 33l22 20M43 33 21 53M24 28l20 18M40 28 20 46M20 42l14 14M44 42 30 56" stroke="#d98200" stroke-width="2.2" stroke-linecap="round"/></svg>',
+    '<svg viewBox="0 0 64 64" aria-hidden="true"><path d="M9 31a23 23 0 0 0 46 0z" fill="#6d4c2f"/><ellipse cx="32" cy="31" rx="23" ry="9" fill="#fff8e1" stroke="#6d4c2f" stroke-width="3"/><ellipse cx="32" cy="31" rx="14" ry="4.6" fill="#d7ccc8"/><ellipse cx="22" cy="44" rx="3" ry="5" fill="#fff" opacity=".18"/></svg>',
+    '<svg viewBox="0 0 64 64" aria-hidden="true"><g transform="rotate(-25 32 32)"><ellipse cx="32" cy="32" rx="24" ry="17" fill="#ffe14a"/><circle cx="8.5" cy="32" r="4.5" fill="#ffe14a"/><circle cx="55.5" cy="32" r="4.5" fill="#ffe14a"/><ellipse cx="26" cy="26" rx="7" ry="2.8" fill="#fff" opacity=".45"/></g><path d="M42 14c4-5 10-5 13-3-2 5-8 7-13 3z" fill="#4caf50"/></svg>',
+    '<svg viewBox="0 0 64 64" aria-hidden="true"><path d="M45 12c-15-5-35 5-35 26 0 12 10 20 22 18 16-3 25-25 13-44z" fill="#ffa726"/><path d="M45 12c9 15 6 32-9 42 13-4 24-25 9-42z" fill="#ef5350" opacity=".75"/><path d="M45 12c2-5 8-7 13-5-2 5-8 7-13 5z" fill="#43a047"/><ellipse cx="21" cy="38" rx="3" ry="6" fill="#fff" opacity=".35"/></svg>',
+    '<svg viewBox="0 0 64 64" aria-hidden="true"><path d="M32 14c-6 0-8 8-10 14-4 6-8 10-8 18 0 8 8 12 18 12s18-4 18-12c0-8-4-12-8-18-2-6-4-14-10-14z" fill="#aed581"/><path d="M32 14c0-4 1-7 3-9" stroke="#6b4423" stroke-width="3" stroke-linecap="round" fill="none"/><path d="M35 11c4-4 10-4 13-2-2 5-8 7-13 2z" fill="#4caf50"/><ellipse cx="23" cy="42" rx="3" ry="6" fill="#fff" opacity=".35"/></svg>',
+    '<svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="36" r="23" fill="#ff9800"/><ellipse cx="23" cy="28" rx="5" ry="8" transform="rotate(25 23 28)" fill="#fff" opacity=".3"/><circle cx="32" cy="15" r="2.6" fill="#6b4423"/><path d="M33 14c4-6 12-6 15-4-2 6-9 8-15 4z" fill="#4caf50"/></svg>',
+    '<svg viewBox="0 0 64 64" aria-hidden="true"><path d="M9 55C12 40 24 26 40 20c5-2 10 4 8 9C42 44 28 52 9 55z" fill="#ff7a00"/><path d="M24 41l6-2M31 33l6-2M19 47l5-2" stroke="#d65a00" stroke-width="2.4" stroke-linecap="round"/><path d="M42 20c0-6 2-10 5-13M45 24c5-3 9-3 13-2M40 18c-5-3-8-3-12-1" stroke="#43a047" stroke-width="4" stroke-linecap="round" fill="none"/></svg>'
+  ];
   const CFG = {
     mudah:{cols:4,pairs:6,time:60,xp:6,label:'Mudah'},
     sedang:{cols:4,pairs:8,time:90,xp:10,label:'Sedang'},
@@ -22656,19 +23001,52 @@ TOOL_RENDERERS['device-info'] = (el)=>{
 
 TOOL_RENDERERS['battery-info'] = (el)=>{
   el.innerHTML = `<div class="empty-state"><span class="em"><i class=svi-battery></i></span>Memuat info baterai...</div>`;
-  if(navigator.getBattery){
-    navigator.getBattery().then(b=>{
-      function draw(){
-        el.innerHTML = `
-          <div class="result-box"><div class="big">${Math.round(b.level*100)}%</div><div class="lbl">${b.charging?'<i class=svi-zap></i> Sedang mengisi daya':'Menggunakan baterai'}</div></div>
-        `;
-      }
-      draw();
-      b.addEventListener('levelchange', draw); b.addEventListener('chargingchange', draw);
-    });
-  } else {
-    el.innerHTML = `<div class="empty-state"><span class="em"><i class=svi-battery></i></span>Browser ini tidak mendukung Battery API (umum di iOS/Safari).</div>`;
-  }
+  if(!navigator.getBattery){ el.innerHTML = `<div class="empty-state"><span class="em"><i class=svi-battery></i></span>Browser ini tidak mendukung Battery API (umum di iOS/Safari).</div>`; return; }
+  navigator.getBattery().then(b=>{
+    const hm=h=>{ const m=Math.round(h*60); return (m>=60?Math.floor(m/60)+' j ':'')+(m%60)+' mnt'; };
+    function sample(){
+      let log=DB.get('battLog',[]); const now=Date.now(), l=Math.round(b.level*100), last=log[log.length-1];
+      if(!last || last.l!==l || last.c!==b.charging || now-last.t>120000){ log.push({t:now,l:l,c:b.charging?1:0}); log=log.filter(x=>now-x.t<6*3600e3).slice(-80); DB.set('battLog',log); }
+      return log;
+    }
+    function rate(log){ // %/jam dari pemakaianmu sendiri (hanya saat tidak mengisi)
+      const d=[]; for(let i=log.length-1;i>=0&&!log[i].c;i--) d.unshift(log[i]);
+      if(d.length<2) return null; const f=d[0], e=d[d.length-1], hrs=(e.t-f.t)/3600e3, drop=f.l-e.l;
+      return (hrs>=0.03 && drop>=1) ? drop/hrs : null;
+    }
+    function draw(){
+      const log=sample(), pc=Math.round(b.level*100), r=rate(log);
+      const col=b.charging?'#22c55e':(pc<=15?'#ef4444':pc<=30?'#f59e0b':'var(--accent)');
+      const lvl=pc>=90?'Penuh':pc>=60?'Baik':pc>=30?'Cukup':pc>=15?'Rendah':'Kritis';
+      const tm=h=>new Date(Date.now()+h*3600e3).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'});
+      let est, sub;
+      if(b.charging){ const t=b.chargingTime, ok=isFinite(t)&&t>60, h=ok?t/3600:(100-pc)/25;
+        est=pc>=100?'Penuh':(ok?'':'± ')+hm(h); sub=pc>=100?'Cabut charger sekarang':'Penuh sekitar '+tm(h)+' · '+(ok?'dari sistem HP':'perkiraan awal'); }
+      else{ const t=b.dischargingTime, lr=DB.get('battRate',0)||0; let h,src;
+        if(isFinite(t)&&t>300){ h=t/3600; src='dari sistem HP'; }
+        else if(r){ h=pc/r; src='dari pemakaianmu barusan'; }
+        else if(lr>0){ h=pc/lr; src='dari kebiasaan pemakaianmu'; }
+        else{ h=pc/8; src='perkiraan awal, makin akurat saat dipakai'; }
+        est='± '+hm(h); sub='Habis sekitar '+tm(h)+' · '+src; }
+      if(r) DB.set('battRate', +(((DB.get('battRate',0)||r)*0.5+r*0.5).toFixed(2)));
+      const er=r||DB.get('battRate',0)||8;
+      const lv=log.map(x=>x.l), mn=Math.min(...lv), mx=Math.max(...lv); const pts=(log.length>1&&mx>mn)?log.map((x,i)=>((i/(log.length-1))*296+2).toFixed(1)+','+(56-(x.l-mn)/(mx-mn)*50).toFixed(1)).join(' '):'';
+      const tips=b.charging?['Cabut charger di sekitar 80–90% agar baterai awet.']:pc<=20?['Aktifkan mode hemat daya.','Turunkan kecerahan layar.','Matikan musik latar & getar.']:['Kecerahan layar adalah penyedot daya terbesar.'];
+      el.innerHTML=`
+        <div class="bt-body"><div class="bt-fill" style="width:${Math.max(pc,6)}%;background:${col}">${b.charging?'<i class=svi-zap></i> ':''}${pc}%</div></div>
+        <div class="nw-chips"><div class="nw-chip"><b>${lvl}</b><span>Tingkat</span></div><div class="nw-chip"><b>${b.charging?'Mengisi':'Memakai'}</b><span>Status</span></div><div class="nw-chip"><b>${b.charging?'—':(r?'':'~')+er.toFixed(1)+'%'}</b><span>Turun per jam</span></div></div>
+        <div class="card nw-card"><div class="nw-h"><span class="nw-n"><i class=svi-battery></i></span><b>${b.charging?'Perkiraan sampai penuh':'Perkiraan baterai habis'}</b></div>
+          <div style="font:800 26px var(--font-display)">${est}</div><div class="small-note" style="margin-top:2px">${sub}</div></div>
+        <div class="card nw-card"><div class="nw-h"><b>Riwayat ${log.length>1?'('+log.length+' catatan)':''}</b></div>
+          ${pts?`<svg class="bt-spark" viewBox="0 0 300 60" preserveAspectRatio="none"><polyline points="${pts}" fill="none" stroke="${col}" stroke-width="2.5" stroke-linejoin="round"/></svg>`:'<div class="small-note">Level baterai belum berubah, grafik muncul setelah turun atau naik 1%.</div>'}
+          <button class="btn secondary" id="btReset" style="margin-top:8px;padding:8px;font-size:12px;">Hapus riwayat</button></div>
+        <div class="card nw-card"><div class="nw-h"><b>Tips</b></div>${tips.map(t=>'<div class="small-note" style="margin:4px 0">• '+t+'</div>').join('')}</div>`;
+      const rb=el.querySelector('#btReset'); if(rb) rb.onclick=()=>{ DB.set('battLog',[]); draw(); };
+    }
+    draw();
+    b.addEventListener('levelchange',draw); b.addEventListener('chargingchange',draw);
+    const iv=setInterval(()=>{ if(!el.isConnected){ clearInterval(iv); return; } draw(); },60000);
+  });
 };
 
 TOOL_RENDERERS['network-info'] = (el)=>{
@@ -23367,7 +23745,7 @@ function renderEmbedGameTopBtn(el, gid){
 }
 TOOL_RENDERERS['g-peri-bintang'] = (el)=> renderEmbedGameTopBtn(el, 'g-peri-bintang');
 /* Game yang ditutup sementara: ubah true -> false untuk membuka kembali */
-const GAME_CLOSED = {'g-pasar-malam': true};
+const GAME_CLOSED = {'g-pasar-malam': false};
 TOOL_RENDERERS['g-pasar-malam'] = (el)=>{
   if(GAME_CLOSED['g-pasar-malam']){
     if(typeof fsSetNowPlaying === 'function') fsSetNowPlaying(null);
@@ -23780,6 +24158,7 @@ function init(){
   initTheme();
   applyBackground();
   checkDailyLoginStreak();
+  try{ checkAchievements(); }catch(e){}
   updateLevelBadge();
   pruneGameScores();
   const h = location.hash.replace('#','');
